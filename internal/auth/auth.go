@@ -42,10 +42,11 @@ var schemaToGroup = map[string]string{
 type customClaims struct {
 	Groups   []string `json:"groups"`
 	TenantID string   `json:"tid"`
+	KeyID    string   `json:"kid"`
 	jwt.RegisteredClaims
 }
 
-func CreateSignedToken(tenantID string, groups []string) (string, error) {
+func CreateSignedToken(tenantID, kid string, groups []string) (string, error) {
 	privateKeyPEM, err := loadPrivateKey(privateKeyPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse private key: %w", err)
@@ -59,6 +60,7 @@ func CreateSignedToken(tenantID string, groups []string) (string, error) {
 	userClaims := customClaims{
 		Groups:   guidGroups,
 		TenantID: tenantID,
+		KeyID:    kid,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "local_excel_api",
 			Subject:   "lucasmeller",

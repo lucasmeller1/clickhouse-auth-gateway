@@ -38,14 +38,17 @@ func main() {
 	}
 
 	tid := os.Getenv("TENANT_ID")
-	if tid == "" {
-		log.Fatal("tenant_id must not be empty")
+	issuer := os.Getenv("ISSUER_JWT")
+	audience := os.Getenv("AUDIENCE_JWT")
+	kid := os.Getenv("KID_JWT")
+	if tid == "" || issuer == "" || audience == "" || kid == "" {
+		log.Fatal("tenant_id, kid, issuer or audience is empty")
 	}
 
-	signedToken, err := auth.CreateSignedToken(tid, []string{"Contabil_3", "Operacional_4"})
+	signedToken, err := auth.CreateSignedToken(tid, kid, []string{"Contabil_3", "Operacional_4"})
 	if err != nil {
 		log.Fatalf("failed to create a token: %v", err)
 	}
-
 	log.Println(signedToken)
+
 }
