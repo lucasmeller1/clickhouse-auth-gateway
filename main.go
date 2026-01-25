@@ -17,7 +17,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to create a token: %v", err)
 	}
-	log.Println(signedToken)
+	log.Println("Bearer", signedToken)
 
 	server := app.NewServer(cfg)
 	server.Run()

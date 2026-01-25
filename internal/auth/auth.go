@@ -39,13 +39,13 @@ var schemaToGroup = map[string]string{
 	"Operacional_7": "33333333-3333-3333-3333-333333333337",
 }
 
-type customClaims struct {
+type CustomClaims struct {
 	Groups   []string `json:"groups"`
 	TenantID string   `json:"tid"`
-	KeyID    string   `json:"kid"`
 	jwt.RegisteredClaims
 }
 
+// ========= para teste local
 func CreateSignedToken(cfg config.AuthConfig, groups []string) (string, error) {
 	privateKeyPEM, err := loadPrivateKey(privateKeyPath)
 	if err != nil {
@@ -57,21 +57,22 @@ func CreateSignedToken(cfg config.AuthConfig, groups []string) (string, error) {
 		guidGroups = append(guidGroups, schemaToGroup[g])
 	}
 
-	userClaims := customClaims{
+	userClaims := CustomClaims{
 		Groups:   guidGroups,
 		TenantID: cfg.TenantID,
-		KeyID:    cfg.KeyID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "local_excel_api",
 			Subject:   "lucasmeller",
 			Audience:  []string{"excel_api"},
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Second * 30)),
 			NotBefore: jwt.NewNumericDate(time.Now()),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, userClaims)
+	token.Header["kid"] = cfg.KeyID
+
 	signedToken, err := token.SignedString(privateKeyPEM)
 	if err != nil {
 		return "", fmt.Errorf("failed to sign token: %w", err)
@@ -96,68 +97,53 @@ func loadPublicKey(path string) (*rsa.PublicKey, error) {
 	return jwt.ParseRSAPublicKeyFromPEM(key)
 }
 
-// metodo meio estranho, fazer do zero com a documentacao
-func validateClaims(claims *customClaims, cfg config.AuthConfig) error {
-	if claims.Issuer != cfg.Issuer {
-		return fmt.Errorf("invalid issuer")
+// =========
+
+func validateClaims(claims *CustomClaims, cfg config.AuthConfig) error {
+	if claims.TenantID != cfg.TenantID {
+		return fmt.Errorf("tenant mismatch")
 	}
-
-	/*
-		if !claims.VerifyAudience(cfg.Audience, true) {
-			return fmt.Errorf("invalid audience")
-		}
-	*/
-
-	if claims.ExpiresAt == nil || time.Now().After(claims.ExpiresAt.Time) {
-		return fmt.Errorf("token expired")
-	}
-
-	if claims.NotBefore != nil && time.Now().Before(claims.NotBefore.Time) {
-		return fmt.Errorf("token not valid yet")
-	}
-
-	if claims.TenantID == "" {
-		return fmt.Errorf("missing tenant id")
-	}
-
 	return nil
 }
 
-func IsValidJWT(jwtToken string, cfg config.AuthConfig) error {
+func IsValidJWT(jwtToken string, cfg config.AuthConfig) (*CustomClaims, error) {
 	publicKey, err := loadPublicKey(publicKeyPath)
 	if err != nil {
-		return fmt.Errorf("failed to load public key: %w", err)
+		return nil, fmt.Errorf("failed to load public key: %w", err)
 	}
 
-	token, err := jwt.ParseWithClaims(
+	parser := jwt.NewParser(
+		jwt.WithIssuer(cfg.Issuer),
+		jwt.WithAudience(cfg.Audience),
+		jwt.WithExpirationRequired(),
+		jwt.WithIssuedAt(),
+		jwt.WithLeeway(2*time.Minute),
+		jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Alg()}),
+	)
+
+	token, err := parser.ParseWithClaims(
 		jwtToken,
-		&customClaims{},
+		&CustomClaims{},
 		func(token *jwt.Token) (interface{}, error) {
-			if token.Method != jwt.SigningMethodRS256 {
+			if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 			}
 			return publicKey, nil
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("failed to check signature method")
+		return nil, fmt.Errorf("jwt validation failed: %w", err)
 	}
 
-	if !token.Valid {
-		return fmt.Errorf("invalid token")
-	}
-
-	_, ok := token.Claims.(*customClaims)
+	claims, ok := token.Claims.(*CustomClaims)
 	if !ok {
-		return fmt.Errorf("invalid claims type")
+		return nil, fmt.Errorf("invalid claims type")
 	}
 
-	/*
-		err = validateClaims(claims, cfg)
-		if err != nil {
-			return false, fmt.Errorf("invalid token: %w", err)
-		}
-	*/
+	err = validateClaims(claims, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("invalid token: %w", err)
+	}
 
-	return nil
+	return claims, nil
 }
