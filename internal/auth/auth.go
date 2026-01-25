@@ -4,6 +4,7 @@ import (
 	"crypto/rsa"
 	"fmt"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/lucasmeller1/excel_api/internal/config"
 	//"log"
 	"os"
 	"time"
@@ -46,7 +47,7 @@ type customClaims struct {
 	jwt.RegisteredClaims
 }
 
-func CreateSignedToken(tenantID, kid string, groups []string) (string, error) {
+func CreateSignedToken(cfg config.AuthConfig, groups []string) (string, error) {
 	privateKeyPEM, err := loadPrivateKey(privateKeyPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse private key: %w", err)
@@ -59,8 +60,8 @@ func CreateSignedToken(tenantID, kid string, groups []string) (string, error) {
 
 	userClaims := customClaims{
 		Groups:   guidGroups,
-		TenantID: tenantID,
-		KeyID:    kid,
+		TenantID: cfg.TenantID,
+		KeyID:    cfg.KeyID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "local_excel_api",
 			Subject:   "lucasmeller",
