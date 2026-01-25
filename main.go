@@ -19,6 +19,6 @@ func main() {
 	}
 	log.Println(signedToken)
 
-	server := app.NewServer(cfg.HTTP)
+	server := app.NewServer(cfg)
 	server.Run()
 }

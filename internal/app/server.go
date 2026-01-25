@@ -3,8 +3,9 @@ package app
 import (
 	"context"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/lucasmeller1/excel_api/internal/config"
+	apimw "github.com/lucasmeller1/excel_api/internal/middleware"
 	"log"
 	"net/http"
 	"os"
@@ -18,21 +19,35 @@ type customServer struct {
 	ShutdownTimeout time.Duration
 }
 
-func NewServer(cfg config.HTTPConfig) *customServer {
+func NewServer(cfg *config.Config) *customServer {
 	r := chi.NewRouter()
-	r.Use(middleware.Logger)
+	r.Use(chimw.Logger)
+
+	r.Group(func(r chi.Router) {
+		r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("ok"))
+		})
+	})
+
+	r.Group(func(r chi.Router) {
+		r.Use(apimw.AuthMiddleware(cfg.Auth))
+		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+			w.Write([]byte("salve"))
+		})
+	})
 
 	server := &customServer{
 		Server: &http.Server{
-			Addr:              cfg.Addr,
+			Addr:              cfg.HTTP.Addr,
 			Handler:           r,
-			ReadTimeout:       cfg.ReadTimeout,
-			ReadHeaderTimeout: cfg.ReadHeaderTimeout,
-			WriteTimeout:      cfg.WriteTimeout,
-			IdleTimeout:       cfg.IdleTimeout,
-			MaxHeaderBytes:    cfg.MaxHeaderBytes,
+			ReadTimeout:       cfg.HTTP.ReadTimeout,
+			ReadHeaderTimeout: cfg.HTTP.ReadHeaderTimeout,
+			WriteTimeout:      cfg.HTTP.WriteTimeout,
+			IdleTimeout:       cfg.HTTP.IdleTimeout,
+			MaxHeaderBytes:    cfg.HTTP.MaxHeaderBytes,
 		},
-		ShutdownTimeout: cfg.ShutdownTimeout,
+		ShutdownTimeout: cfg.HTTP.ShutdownTimeout,
 	}
 
 	return server
