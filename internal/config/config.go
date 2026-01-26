@@ -4,10 +4,12 @@ import (
 	"github.com/joho/godotenv"
 	"log"
 	"os"
+	"strings"
 	"time"
 )
 
 var groupsMapping = map[string]string{
+	"11111111-1111-1111-1111-111111111111": "Contabil_1",
 	"11111111-1111-1111-1111-111111111112": "Contabil_2",
 	"11111111-1111-1111-1111-111111111113": "Contabil_3",
 	"11111111-1111-1111-1111-111111111114": "Contabil_4",
@@ -49,9 +51,14 @@ type HTTPConfig struct {
 	ShutdownTimeout time.Duration
 }
 
+type PublicSchemasConfig struct {
+	Schemas []string
+}
+
 type Config struct {
-	HTTP HTTPConfig
-	Auth AuthConfig
+	HTTP          HTTPConfig
+	Auth          AuthConfig
+	PublicSchemas PublicSchemasConfig
 	/*
 		Redis struct {
 			Addr string
@@ -64,7 +71,6 @@ type Config struct {
 			Password string
 		}
 
-		PublicSchemas []string
 	*/
 }
 
@@ -74,6 +80,33 @@ func mustEnv(name string) string {
 		log.Fatalf("env %s must not be empty", name)
 	}
 	return value
+}
+
+func schemaStringToSlice(s string) []string {
+	if strings.TrimSpace(s) == "" {
+		return nil
+	}
+
+	raw := strings.Split(s, ",")
+
+	seen := make(map[string]struct{}, len(raw))
+	out := make([]string, 0, len(raw))
+
+	for _, v := range raw {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			continue
+		}
+
+		if _, exists := seen[v]; exists {
+			continue
+		}
+
+		seen[v] = struct{}{}
+		out = append(out, v)
+	}
+
+	return out
 }
 
 func Load() *Config {
@@ -87,6 +120,7 @@ func Load() *Config {
 	audience := mustEnv("AUDIENCE_JWT")
 	kid := mustEnv("KID_JWT")
 	addrPort := mustEnv("HTTP_PORT")
+	publicSchemas := schemaStringToSlice(os.Getenv("PUBLIC_SCHEMAS"))
 
 	config := Config{
 		Auth: AuthConfig{
@@ -103,6 +137,9 @@ func Load() *Config {
 			IdleTimeout:       120 * time.Second,
 			MaxHeaderBytes:    1 << 20,
 			ShutdownTimeout:   5 * time.Second,
+		},
+		PublicSchemas: PublicSchemasConfig{
+			Schemas: publicSchemas,
 		},
 	}
 

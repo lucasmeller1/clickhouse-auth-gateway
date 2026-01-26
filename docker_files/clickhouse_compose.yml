@@ -1,0 +1,22 @@
+services:
+
+  discovery_clickhouse:
+    image: clickhousedb
+    container_name: clickhousedb
+    hostname: clickhousedb
+    networks:
+      - test_network
+    ports:
+      - "8123:8123"
+      #- "9000:9000"
+    volumes:
+      - ./volumes/clickhouse_db:/var/lib/clickhouse 
+    environment:
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=default
+      - CLICKHOUSE_DB=app_database
+
+networks:
+  test_network:
+    external: true
+
