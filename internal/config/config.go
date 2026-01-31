@@ -55,20 +55,24 @@ type PublicSchemasConfig struct {
 	Schemas []string
 }
 
+type ClickhouseConfig struct {
+	User     string
+	Password string
+	Schema   string
+	Hostname string
+
+	ClientTimeout int
+}
+
 type Config struct {
 	HTTP          HTTPConfig
 	Auth          AuthConfig
 	PublicSchemas PublicSchemasConfig
+	Clickhouse    ClickhouseConfig
 	/*
 		Redis struct {
 			Addr string
 			DB   int
-		}
-
-		ClickHouse struct {
-			URL      string
-			User     string
-			Password string
 		}
 
 	*/
@@ -122,6 +126,11 @@ func Load() *Config {
 	addrPort := mustEnv("HTTP_PORT")
 	publicSchemas := schemaStringToSlice(os.Getenv("PUBLIC_SCHEMAS"))
 
+	userClickhouse := mustEnv("CLICKHOUSE_USER")
+	passwordClickhouse := mustEnv("CLICKHOUSE_PASSWORD")
+	schemaClickhouse := mustEnv("CLICKHOUSE_SCHEMA")
+	hostnameClickhouse := mustEnv("CLICKHOUSE_HOSTNAME")
+
 	config := Config{
 		Auth: AuthConfig{
 			TenantID: tid,
@@ -133,13 +142,20 @@ func Load() *Config {
 			Addr:              addrPort,
 			ReadTimeout:       10 * time.Second,
 			ReadHeaderTimeout: 5 * time.Second,
-			WriteTimeout:      10 * time.Second,
+			WriteTimeout:      60 * time.Second,
 			IdleTimeout:       120 * time.Second,
 			MaxHeaderBytes:    1 << 20,
 			ShutdownTimeout:   5 * time.Second,
 		},
 		PublicSchemas: PublicSchemasConfig{
 			Schemas: publicSchemas,
+		},
+		Clickhouse: ClickhouseConfig{
+			User:          userClickhouse,
+			Password:      passwordClickhouse,
+			Schema:        schemaClickhouse,
+			Hostname:      hostnameClickhouse,
+			ClientTimeout: 60,
 		},
 	}
 

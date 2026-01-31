@@ -43,6 +43,71 @@ CREATE TABLE IF NOT EXISTS Contabil_1.financial_records
 ENGINE = MergeTree
 ORDER BY id;
 
+CREATE TABLE IF NOT EXISTS Contabil_1.financial_ledger
+(
+    -- identifiers
+    id UInt64,
+    transaction_id UUID,
+    document_number String,
+    document_type LowCardinality(String),
+
+    -- accounting structure
+    account_code String,
+    account_name String,
+    cost_center LowCardinality(String),
+    project_code LowCardinality(String),
+    branch_id UInt16,
+    branch_name LowCardinality(String),
+
+    -- parties
+    partner_code String,
+    partner_name String,
+    partner_type LowCardinality(String), -- CUSTOMER / SUPPLIER / INTERNAL
+
+    -- monetary values
+    debit Decimal(18,2),
+    credit Decimal(18,2),
+    balance Decimal(18,2),
+    currency FixedString(3),
+    exchange_rate Decimal(18,6),
+    amount_local Decimal(18,2),
+
+    -- taxes
+    tax_code LowCardinality(String),
+    tax_base Decimal(18,2),
+    tax_amount Decimal(18,2),
+    tax_type LowCardinality(String), -- ICMS / PIS / COFINS / ISS
+
+    -- dates
+    reference_date Date,
+    posting_date Date,
+    document_date Date,
+    created_at DateTime,
+    updated_at DateTime,
+
+    -- metadata / audit
+    source_system LowCardinality(String), -- SAP / MANUAL / API
+    created_by String,
+    updated_by String,
+    is_reversal UInt8,
+    status LowCardinality(String), -- OPEN / POSTED / CANCELED
+
+    -- free-form but controlled
+    description String,
+    notes String
+)
+ENGINE = MergeTree
+PARTITION BY toYYYYMM(reference_date)
+ORDER BY (
+    reference_date,
+    account_code,
+    branch_id,
+    project_code,
+    transaction_id
+)
+SETTINGS index_granularity = 8192;
+
+
 CREATE TABLE IF NOT EXISTS Contabil_1.audit_log
 (
     id UInt64,
@@ -95,6 +160,56 @@ CREATE TABLE IF NOT EXISTS Operacional_1.metrics
 )
 ENGINE = MergeTree
 ORDER BY id;
+
+INSERT INTO Contabil_1.financial_ledger
+SELECT
+    number + 1                                   AS id,
+    generateUUIDv4()                             AS transaction_id,
+    concat('DOC-', toString(number))             AS document_number,
+    arrayElement(
+        ['INVOICE','PAYMENT','ADJUSTMENT','REVERSAL'],
+        rand() % 4 + 1
+    )                                            AS document_type,
+
+    concat('3.', toString(rand() % 9), '.01.', lpad(toString(rand() % 100), 2, '0')) AS account_code,
+    concat('Account ', toString(rand() % 500))   AS account_name,
+    arrayElement(['CC01','CC02','CC03','CC04'], rand() % 4 + 1) AS cost_center,
+    arrayElement(['PRJ_A','PRJ_B','PRJ_C'], rand() % 3 + 1)     AS project_code,
+    rand() % 10 + 1                               AS branch_id,
+    arrayElement(['HQ','SP','RJ','MG','RS'], rand() % 5 + 1)    AS branch_name,
+
+    concat('PN-', toString(rand() % 10000))       AS partner_code,
+    concat('Partner ', toString(rand() % 10000)) AS partner_name,
+    arrayElement(['CUSTOMER','SUPPLIER','INTERNAL'], rand() % 3 + 1) AS partner_type,
+
+    toDecimal64(rand() % 100000 / 10.0, 2)        AS debit,
+    toDecimal64(rand() % 100000 / 10.0, 2)        AS credit,
+    toDecimal64(rand() % 500000 / 10.0, 2)        AS balance,
+    arrayElement(['BRL','USD','EUR'], rand() % 3 + 1) AS currency,
+    toDecimal64(1 + rand() % 3000 / 1000.0, 6)    AS exchange_rate,
+    toDecimal64(rand() % 100000 / 10.0, 2)        AS amount_local,
+
+    arrayElement(['TAX01','TAX02','TAX03'], rand() % 3 + 1) AS tax_code,
+    toDecimal64(rand() % 50000 / 10.0, 2)         AS tax_base,
+    toDecimal64(rand() % 10000 / 10.0, 2)         AS tax_amount,
+    arrayElement(['ICMS','PIS','COFINS','ISS'], rand() % 4 + 1) AS tax_type,
+
+    today() - rand() % 365                        AS reference_date,
+    today() - rand() % 365                        AS posting_date,
+    today() - rand() % 365                        AS document_date,
+    now()                                        AS created_at,
+    now()                                        AS updated_at,
+
+    arrayElement(['SAP','MANUAL','API'], rand() % 3 + 1) AS source_system,
+    concat('user-', toString(rand() % 500))       AS created_by,
+    concat('user-', toString(rand() % 500))       AS updated_by,
+    rand() % 2                                   AS is_reversal,
+    arrayElement(['OPEN','POSTED','CANCELED'], rand() % 3 + 1) AS status,
+
+    concat('Transaction description ', toString(number)) AS description,
+    concat('Notes ', toString(rand() % 1000))     AS notes
+FROM numbers(100000);
+
 
 -- Inserting 100,000 random records into Contabil_1.financial_records
 INSERT INTO Contabil_1.financial_records

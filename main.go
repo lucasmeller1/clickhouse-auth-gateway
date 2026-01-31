@@ -5,6 +5,7 @@ import (
 	//"github.com/joho/godotenv"
 	"github.com/lucasmeller1/excel_api/internal/app"
 	"github.com/lucasmeller1/excel_api/internal/auth"
+	"github.com/lucasmeller1/excel_api/internal/clickhouse"
 	"github.com/lucasmeller1/excel_api/internal/config"
 	"log"
 	//"os"
@@ -12,6 +13,7 @@ import (
 
 func main() {
 	cfg := config.Load()
+	ch := clickhouse.NewHTTPCSV(cfg.Clickhouse)
 
 	signedToken, err := auth.CreateSignedToken(cfg.Auth, []string{"Contabil_3", "Operacional_4"})
 	if err != nil {
@@ -19,6 +21,6 @@ func main() {
 	}
 	log.Println("Bearer", signedToken)
 
-	server := app.NewServer(cfg)
+	server := app.NewServer(cfg, ch)
 	server.Run()
 }

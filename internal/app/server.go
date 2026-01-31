@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
+	"github.com/lucasmeller1/excel_api/internal/clickhouse"
 	"github.com/lucasmeller1/excel_api/internal/config"
 	apimw "github.com/lucasmeller1/excel_api/internal/middleware"
 	"log"
@@ -20,7 +21,7 @@ type customServer struct {
 	ShutdownTimeout time.Duration
 }
 
-func NewServer(cfg *config.Config) *customServer {
+func NewServer(cfg *config.Config, ch *clickhouse.HTTPCSVClient) *customServer {
 	r := chi.NewRouter()
 	r.Use(chimw.Logger)
 
@@ -29,6 +30,8 @@ func NewServer(cfg *config.Config) *customServer {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte("ok"))
 		})
+
+		r.Get("/tables", ch.ExportCSV)
 	})
 
 	r.Group(func(r chi.Router) {
