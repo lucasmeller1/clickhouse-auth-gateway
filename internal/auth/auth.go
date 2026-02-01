@@ -14,32 +14,6 @@ const (
 	publicKeyPath  = "./public.pem"
 )
 
-var schemaToGroup = map[string]string{
-	"Contabil_1": "11111111-1111-1111-1111-111111111111",
-	"Contabil_2": "11111111-1111-1111-1111-111111111112",
-	"Contabil_3": "11111111-1111-1111-1111-111111111113",
-	"Contabil_4": "11111111-1111-1111-1111-111111111114",
-	"Contabil_5": "11111111-1111-1111-1111-111111111115",
-	"Contabil_6": "11111111-1111-1111-1111-111111111116",
-	"Contabil_7": "11111111-1111-1111-1111-111111111117",
-
-	"Financeiro_1": "22222222-2222-2222-2222-222222222221",
-	"Financeiro_2": "22222222-2222-2222-2222-222222222222",
-	"Financeiro_3": "22222222-2222-2222-2222-222222222223",
-	"Financeiro_4": "22222222-2222-2222-2222-222222222224",
-	"Financeiro_5": "22222222-2222-2222-2222-222222222225",
-	"Financeiro_6": "22222222-2222-2222-2222-222222222226",
-	"Financeiro_7": "22222222-2222-2222-2222-222222222227",
-
-	"Operacional_1": "33333333-3333-3333-3333-333333333331",
-	"Operacional_2": "33333333-3333-3333-3333-333333333332",
-	"Operacional_3": "33333333-3333-3333-3333-333333333333",
-	"Operacional_4": "33333333-3333-3333-3333-333333333334",
-	"Operacional_5": "33333333-3333-3333-3333-333333333335",
-	"Operacional_6": "33333333-3333-3333-3333-333333333336",
-	"Operacional_7": "33333333-3333-3333-3333-333333333337",
-}
-
 type CustomClaims struct {
 	Groups   []string `json:"groups"`
 	TenantID string   `json:"tid"`
@@ -55,7 +29,7 @@ func CreateSignedToken(cfg config.AuthConfig, groups []string) (string, error) {
 
 	guidGroups := make([]string, 0)
 	for _, g := range groups {
-		guidGroups = append(guidGroups, schemaToGroup[g])
+		guidGroups = append(guidGroups, config.SchemaToGUID[g])
 	}
 
 	userClaims := CustomClaims{
@@ -65,7 +39,7 @@ func CreateSignedToken(cfg config.AuthConfig, groups []string) (string, error) {
 			Issuer:    "local_excel_api",
 			Subject:   "lucasmeller",
 			Audience:  []string{"excel_api"},
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Second * 30)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 2)),
 			NotBefore: jwt.NewNumericDate(time.Now()),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
@@ -125,7 +99,7 @@ func IsValidJWT(jwtToken string, cfg config.AuthConfig) (*CustomClaims, error) {
 	token, err := parser.ParseWithClaims(
 		jwtToken,
 		&CustomClaims{},
-		func(token *jwt.Token) (interface{}, error) {
+		func(token *jwt.Token) (any, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 			}

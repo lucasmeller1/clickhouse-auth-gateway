@@ -7,6 +7,7 @@ import (
 	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/lucasmeller1/excel_api/internal/clickhouse"
 	"github.com/lucasmeller1/excel_api/internal/config"
+	"github.com/lucasmeller1/excel_api/internal/handlers"
 	apimw "github.com/lucasmeller1/excel_api/internal/middleware"
 	"log"
 	"net/http"
@@ -30,15 +31,16 @@ func NewServer(cfg *config.Config, ch *clickhouse.HTTPCSVClient) *customServer {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte("ok"))
 		})
-
-		r.Get("/tables", ch.ExportCSV)
 	})
 
 	r.Group(func(r chi.Router) {
 		r.Use(apimw.AuthMiddleware(cfg.Auth))
+
+		r.Get("/tables", ch.ExportCSV)
+
 		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json; charset=utf-8")
-			claims, ok := apimw.ClaimsFromContext(r.Context())
+			claims, ok := handlers.ClaimsFromContext(r.Context())
 			if !ok {
 				w.Write([]byte("falha ao pegar claims"))
 				return

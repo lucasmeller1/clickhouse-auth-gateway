@@ -13,9 +13,9 @@ import (
 
 func main() {
 	cfg := config.Load()
-	ch := clickhouse.NewHTTPCSV(cfg.Clickhouse)
+	ch := clickhouse.NewHTTPCSV(cfg.Clickhouse, cfg.PublicSchemas)
 
-	signedToken, err := auth.CreateSignedToken(cfg.Auth, []string{"Contabil_3", "Operacional_4"})
+	signedToken, err := auth.CreateSignedToken(cfg.Auth, []string{"Contabil_1", "Operacional_4"})
 	if err != nil {
 		log.Fatalf("failed to create a token: %v", err)
 	}
