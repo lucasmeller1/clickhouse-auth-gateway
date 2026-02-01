@@ -2,13 +2,8 @@ package app
 
 import (
 	"context"
-	"encoding/json"
-	"github.com/go-chi/chi/v5"
-	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/lucasmeller1/excel_api/internal/clickhouse"
 	"github.com/lucasmeller1/excel_api/internal/config"
-	"github.com/lucasmeller1/excel_api/internal/handlers"
-	apimw "github.com/lucasmeller1/excel_api/internal/middleware"
 	"log"
 	"net/http"
 	"os"
@@ -23,33 +18,7 @@ type customServer struct {
 }
 
 func NewServer(cfg *config.Config, ch *clickhouse.HTTPCSVClient) *customServer {
-	r := chi.NewRouter()
-	r.Use(chimw.Logger)
-
-	r.Group(func(r chi.Router) {
-		r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("ok"))
-		})
-	})
-
-	r.Group(func(r chi.Router) {
-		r.Use(apimw.AuthMiddleware(cfg.Auth))
-
-		r.Get("/tables", ch.ExportCSV)
-
-		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json; charset=utf-8")
-			claims, ok := handlers.ClaimsFromContext(r.Context())
-			if !ok {
-				w.Write([]byte("falha ao pegar claims"))
-				return
-			}
-			if err := json.NewEncoder(w).Encode(claims); err != nil {
-				log.Println("encode chirps response:", err)
-			}
-		})
-	})
+	r := getRoutes(cfg, ch)
 
 	server := &customServer{
 		Server: &http.Server{
