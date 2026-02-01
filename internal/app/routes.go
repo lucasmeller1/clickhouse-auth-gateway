@@ -28,7 +28,8 @@ func getRoutes(cfg *config.Config, ch *clickhouse.HTTPCSVClient) chi.Router {
 	r.Group(func(r chi.Router) {
 		r.Use(apimw.AuthMiddleware(cfg.Auth))
 
-		r.Get("/tables", ch.ExportCSV)
+		r.Get("/export", ch.ExportCSV)
+		r.Get("/tables", ch.GetUserTables)
 	})
 
 	return r
