@@ -4,6 +4,7 @@ import (
 	"github.com/joho/godotenv"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -90,18 +91,18 @@ type ClickhouseConfig struct {
 	ClientTimeout int
 }
 
+type RedisConfig struct {
+	Addr     string
+	Password string
+	DB       int
+}
+
 type Config struct {
 	HTTP          HTTPConfig
 	Auth          AuthConfig
 	PublicSchemas PublicSchemasConfig
 	Clickhouse    ClickhouseConfig
-	/*
-		Redis struct {
-			Addr string
-			DB   int
-		}
-
-	*/
+	Redis         RedisConfig
 }
 
 func mustEnv(name string) string {
@@ -157,6 +158,13 @@ func Load() *Config {
 	schemaClickhouse := mustEnv("CLICKHOUSE_SCHEMA")
 	hostnameClickhouse := mustEnv("CLICKHOUSE_HOSTNAME")
 
+	redisAddr := mustEnv("REDIS_HOSTNAME")
+	redisPassword := mustEnv("REDIS_PASSWORD")
+	redisDB, err := strconv.Atoi(("REDIS_DB"))
+	if err != nil {
+		log.Fatalf("failed to convert redis DB: %v", err)
+	}
+
 	config := Config{
 		Auth: AuthConfig{
 			TenantID: tid,
@@ -182,6 +190,11 @@ func Load() *Config {
 			Schema:        schemaClickhouse,
 			Hostname:      hostnameClickhouse,
 			ClientTimeout: 60,
+		},
+		Redis: RedisConfig{
+			Addr:     redisAddr,
+			Password: redisPassword,
+			DB:       redisDB,
 		},
 	}
 

@@ -107,6 +107,7 @@ func (c *HTTPCSVClient) ExportCSV(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	database := quoteIdentifier(strings.TrimSpace(r.URL.Query().Get("database")))
 	table := quoteIdentifier(strings.TrimSpace(r.URL.Query().Get("table")))
+	//cacheKey := fmt.Sprintf("csv:%s:%s", database, table)
 	sql := fmt.Sprintf("SELECT * FROM %s.%s", database, table)
 
 	resp, err := c.QueryCSV(ctx, sql)

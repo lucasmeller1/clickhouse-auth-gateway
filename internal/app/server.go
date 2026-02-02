@@ -2,14 +2,16 @@ package app
 
 import (
 	"context"
-	"github.com/lucasmeller1/excel_api/internal/clickhouse"
-	"github.com/lucasmeller1/excel_api/internal/config"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/lucasmeller1/excel_api/internal/clickhouse"
+	"github.com/lucasmeller1/excel_api/internal/config"
+	"github.com/lucasmeller1/excel_api/internal/redis"
 )
 
 type customServer struct {
@@ -17,7 +19,7 @@ type customServer struct {
 	ShutdownTimeout time.Duration
 }
 
-func NewServer(cfg *config.Config, ch *clickhouse.HTTPCSVClient) *customServer {
+func NewServer(cfg *config.Config, ch *clickhouse.HTTPCSVClient, redis *redis.RedisClient) *customServer {
 	r := getRoutes(cfg, ch)
 
 	server := &customServer{
