@@ -31,6 +31,9 @@ CREATE DATABASE IF NOT EXISTS Operacional_5;
 CREATE DATABASE IF NOT EXISTS Operacional_6;
 CREATE DATABASE IF NOT EXISTS Operacional_7;
 
+-- Public
+CREATE DATABASE IF NOT EXISTS Consultas;
+CREATE DATABASE IF NOT EXISTS Atualizacoes;
 
 CREATE TABLE IF NOT EXISTS Contabil_1.financial_records
 (
@@ -161,6 +164,26 @@ CREATE TABLE IF NOT EXISTS Operacional_1.metrics
 ENGINE = MergeTree
 ORDER BY id;
 
+CREATE TABLE IF NOT EXISTS Consultas.metrics
+(
+    id UInt64,
+    metric_name String,
+    metric_value Float64,
+    measured_at DateTime
+)
+ENGINE = MergeTree
+ORDER BY id;
+
+CREATE TABLE IF NOT EXISTS Atualizacoes.metrics
+(
+    id UInt64,
+    metric_name String,
+    metric_value Float64,
+    measured_at DateTime
+)
+ENGINE = MergeTree
+ORDER BY id;
+
 INSERT INTO Contabil_1.financial_ledger
 SELECT
     number + 1                                   AS id,
@@ -257,3 +280,21 @@ SELECT
     (rand() % 500) + (rand() % 100 / 100.0) AS metric_value,
     now() - (number * 300) AS measured_at
 FROM numbers(100000);
+
+
+INSERT INTO Consultas.metrics
+SELECT
+    number + 3 AS id,
+    arrayElement(['containers_processed', 'avg_delivery_time_h', 'fuel_efficiency', 'staff_on_duty'], (number % 4) + 1) AS metric_name,
+    (rand() % 500) + (rand() % 100 / 100.0) AS metric_value,
+    now() - (number * 300) AS measured_at
+FROM numbers(10000);
+
+INSERT INTO Atualizacoes.metrics
+SELECT
+    number + 3 AS id,
+    arrayElement(['containers_processed', 'avg_delivery_time_h', 'fuel_efficiency', 'staff_on_duty'], (number % 4) + 1) AS metric_name,
+    (rand() % 500) + (rand() % 100 / 100.0) AS metric_value,
+    now() - (number * 300) AS measured_at
+FROM numbers(3000);
+
