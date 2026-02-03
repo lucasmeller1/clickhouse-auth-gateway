@@ -160,7 +160,7 @@ func Load() *Config {
 
 	redisAddr := mustEnv("REDIS_HOSTNAME")
 	redisPassword := mustEnv("REDIS_PASSWORD")
-	redisDB, err := strconv.Atoi(("REDIS_DB"))
+	redisDB, err := strconv.Atoi(os.Getenv("REDIS_DB"))
 	if err != nil {
 		log.Fatalf("failed to convert redis DB: %v", err)
 	}

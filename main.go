@@ -15,8 +15,8 @@ import (
 
 func main() {
 	cfg := config.Load()
-	ch := clickhouse.NewHTTPCSV(cfg.Clickhouse, cfg.PublicSchemas)
 	redis := redis.NewRedis(cfg.Redis)
+	ch := clickhouse.NewHTTPCSV(cfg.Clickhouse, cfg.PublicSchemas, redis)
 
 	signedToken, err := auth.CreateSignedToken(cfg.Auth, []string{"Contabil_1", "Operacional_1"})
 	if err != nil {

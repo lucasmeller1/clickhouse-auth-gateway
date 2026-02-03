@@ -16,6 +16,19 @@ services:
       - CLICKHOUSE_PASSWORD=default
       - CLICKHOUSE_DB=app_database
 
+  redis:
+    image: redis:7
+    container_name: redis_local
+    hostname: redis
+    networks:
+      - test_network
+    command: redis-server --requirepass teste
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./volumes/redis_data:/data
+    restart: unless-stopped
+
 networks:
   test_network:
     external: true
