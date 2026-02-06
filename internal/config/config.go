@@ -106,3 +106,13 @@ func Load() *Config {
 
 	return &config
 }
+
+func LookupSchemaByGUID(s string) (string, bool) {
+	schema, ok := GUIDToSchema[s]
+	return schema, ok
+}
+
+func LookupGUIDBySchema(s string) (string, bool) {
+	guid, ok := SchemaToGUID[s]
+	return guid, ok
+}

@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-
-	"github.com/lucasmeller1/excel_api/internal/config"
 )
 
 type ErrorResponse struct {
@@ -20,14 +18,4 @@ func JsonError(w http.ResponseWriter, statusCode int, message string) {
 	if err != nil {
 		log.Println("json encode:", err)
 	}
-}
-
-func LookupSchemaByGUID(s string) (string, bool) {
-	schema, ok := config.GUIDToSchema[s]
-	return schema, ok
-}
-
-func LookupGUIDBySchema(s string) (string, bool) {
-	guid, ok := config.SchemaToGUID[s]
-	return guid, ok
 }

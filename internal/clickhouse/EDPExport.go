@@ -121,7 +121,7 @@ func (c *HTTPCSVClient) ExportCSV(w http.ResponseWriter, r *http.Request) {
 */
 
 func (c *HTTPCSVClient) ExportCSV(w http.ResponseWriter, r *http.Request) {
-	statusCode, err := handlers.ValidateDatabase(r, c.publicSchemas)
+	statusCode, err := ValidateDatabase(r, c.publicSchemas)
 	if err != nil {
 		handlers.JsonError(w, statusCode, err.Error())
 		return

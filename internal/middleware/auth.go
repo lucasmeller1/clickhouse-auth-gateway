@@ -12,7 +12,7 @@ import (
 func AuthMiddleware(cfg config.AuthConfig) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			bearerToken, err := handlers.GetBearerToken(r.Header)
+			bearerToken, err := auth.GetBearerToken(r.Header)
 			if err != nil {
 				handlers.JsonError(w, http.StatusBadRequest, "missing bearer token")
 				return
@@ -24,7 +24,7 @@ func AuthMiddleware(cfg config.AuthConfig) func(http.Handler) http.Handler {
 				return
 			}
 
-			ctx := context.WithValue(r.Context(), handlers.ClaimsContextKey, claims)
+			ctx := context.WithValue(r.Context(), auth.ClaimsContextKey, claims)
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

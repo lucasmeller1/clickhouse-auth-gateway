@@ -8,11 +8,13 @@ import (
 
 	"net/http"
 
+	"github.com/lucasmeller1/excel_api/internal/auth"
+	"github.com/lucasmeller1/excel_api/internal/config"
 	"github.com/lucasmeller1/excel_api/internal/handlers"
 )
 
 func (c *HTTPCSVClient) GetUserTables(w http.ResponseWriter, r *http.Request) {
-	claims, ok := handlers.ClaimsFromContext(r.Context())
+	claims, ok := auth.ClaimsFromContext(r.Context())
 	if !ok {
 		handlers.JsonError(w, http.StatusInternalServerError, "failed to parse authorization claims")
 		return
@@ -24,7 +26,7 @@ func (c *HTTPCSVClient) GetUserTables(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, guid := range claims.Groups {
-		if schema, found := handlers.LookupSchemaByGUID(guid); found {
+		if schema, found := config.LookupSchemaByGUID(guid); found {
 			authorizedSet[schema] = struct{}{}
 		}
 	}
