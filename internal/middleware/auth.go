@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/lucasmeller1/excel_api/internal/auth"
@@ -15,7 +16,9 @@ func AuthMiddleware(cfg config.AuthConfig, redisClient *redis.RedisClient) func(
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			bearerToken, err := auth.GetBearerToken(r.Header)
 			if err != nil {
-				handlers.JsonError(w, http.StatusBadRequest, "missing bearer token")
+				oauthEntraID := fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/authorize", cfg.TenantID)
+				w.Header().Set("WWW-Authenticate", oauthEntraID)
+				handlers.JsonError(w, http.StatusUnauthorized, "unauthorized")
 				return
 			}
 

@@ -18,10 +18,7 @@ func mustEnv(name string) string {
 }
 
 func Load() *Config {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatalf("error to load godotend: %v", err)
-	}
+	_ = godotenv.Load()
 
 	tid := mustEnv("TENANT_ID")
 	issuer := fmt.Sprintf("https://login.microsoftonline.com/%s/v2.0", tid)

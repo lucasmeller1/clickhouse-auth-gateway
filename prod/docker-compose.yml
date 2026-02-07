@@ -1,0 +1,76 @@
+services:
+  api:
+    image: excel_api:latest
+    container_name: excel_api
+    ports:
+      - "8080:8080"
+    environment:
+      TENANT_ID: ${TENANT_ID}
+      AUDIENCE_JWT: ${AUDIENCE_JWT}
+      HTTP_PORT: 8080
+
+      CLICKHOUSE_HOSTNAME: ${CLICKHOUSE_HOSTNAME}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_SCHEMA: ${CLICKHOUSE_SCHEMA}
+
+      REDIS_HOSTNAME: ${REDIS_HOSTNAME}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_DB: ${REDIS_DB}
+    depends_on:
+      - discovery_clickhouse
+      - redis
+    restart: unless-stopped
+    networks:
+      - test_network
+
+
+  nginx:
+    image: nginx:1.27
+    ports:
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./certs:/etc/nginx/certs
+    depends_on:
+      - api
+    networks:
+      - test_network
+
+
+  discovery_clickhouse:
+    image: clickhousedb
+    container_name: clickhousedb
+    hostname: clickhousedb
+    networks:
+      - test_network
+    ports:
+      - "8123:8123"
+    volumes:
+      - ./volumes/clickhouse_db:/var/lib/clickhouse 
+    environment:
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=default
+      - CLICKHOUSE_DB=app_database
+    restart: unless-stopped
+
+
+  redis:
+    image: redis:7
+    container_name: redis_local
+    hostname: redis
+    networks:
+      - test_network
+    command: redis-server --requirepass teste
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./volumes/redis_data:/data
+    restart: unless-stopped
+
+
+networks:
+  test_network:
+    external: true
+
+
