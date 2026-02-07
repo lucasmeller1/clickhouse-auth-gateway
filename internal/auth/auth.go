@@ -5,7 +5,6 @@ import (
 	"crypto/rsa"
 	"encoding/json"
 	"fmt"
-	"net/http"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/lestrrat-go/jwx/v2/jwk"
@@ -13,55 +12,45 @@ import (
 	"github.com/lucasmeller1/excel_api/internal/handlers"
 	"github.com/lucasmeller1/excel_api/internal/redis"
 
-	//"os"
 	"strings"
 	"time"
 )
 
-type ClaimsEntraID struct {
-	Groups   []string `json:"groups"`
-	TenantID string   `json:"tid"`
-	Version  string   `json:"ver"`
-	jwt.RegisteredClaims
+func FetchEntraJWKS(ctx context.Context, cfgAuth *config.AuthConfig) ([]byte, error) {
+	url := fmt.Sprintf("https://login.microsoftonline.com/%s/discovery/v2.0/keys", cfgAuth.TenantID)
+
+	dataBytes, err := handlers.GetRequest(ctx, url)
+	if err != nil {
+		return nil, err
+	}
+
+	return dataBytes, nil
 }
 
-type EntraIDKey struct {
-	Kty           string   `json:"kty"`
-	Use           string   `json:"use"`
-	Kid           string   `json:"kid"`
-	X5t           string   `json:"x5t"`
-	N             string   `json:"n"`
-	E             string   `json:"e"`
-	X5c           []string `json:"x5c"`
-	CloudInstance string   `json:"cloud_instance_name"`
-	Issuer        string   `json:"issuer"`
-}
+func GetCachedTIDKeys(ctx context.Context, cfgAuth *config.AuthConfig, redisClient *redis.RedisClient, force bool) ([]byte, error) {
 
-type EntraIDResponse struct {
-	Keys []EntraIDKey `json:"keys"`
-}
+	cacheKey := fmt.Sprintf("jwks:%s", cfgAuth.TenantID)
 
-type contextKey int
-
-const ClaimsContextKey contextKey = iota
-
-func ClaimsFromContext(ctx context.Context) (*ClaimsEntraID, bool) {
-	claims, ok := ctx.Value(ClaimsContextKey).(*ClaimsEntraID)
-	return claims, ok
-}
-
-func GetEntraIDPublicKey(ctx context.Context, cfgAuth *config.AuthConfig, redisClient *redis.RedisClient, kid string) (EntraIDKey, error) {
-	cachedBytes, err := redisClient.GetWithSingleflight(ctx, fmt.Sprintf("jwks:%s", cfgAuth.TenantID), time.Hour, func() ([]byte, error) {
-		url := fmt.Sprintf("https://login.microsoftonline.com/%s/discovery/v2.0/keys", cfgAuth.TenantID)
-
-		dataBytes, err := handlers.GetRequest(ctx, url)
+	if force {
+		// bypass cache completely
+		data, err := FetchEntraJWKS(ctx, cfgAuth)
 		if err != nil {
 			return nil, err
 		}
 
-		return dataBytes, nil
-	})
+		// update cache directly
+		_ = redisClient.SetCachedResponse(ctx, cacheKey, data, time.Hour)
 
+		return data, nil
+	}
+
+	return redisClient.GetWithSingleflight(ctx, cacheKey, time.Hour, func() ([]byte, error) {
+		return FetchEntraJWKS(ctx, cfgAuth)
+	})
+}
+
+func GetEntraIDPublicKey(ctx context.Context, cfgAuth *config.AuthConfig, redisClient *redis.RedisClient, kid string, force bool) (EntraIDKey, error) {
+	cachedBytes, err := GetCachedTIDKeys(ctx, cfgAuth, redisClient, force)
 	if err != nil {
 		return EntraIDKey{}, fmt.Errorf("failed to get tid keys: %w", err)
 	}
@@ -84,113 +73,71 @@ func GetEntraIDPublicKey(ctx context.Context, cfgAuth *config.AuthConfig, redisC
 	return key, nil
 }
 
-func validateEntraIDKey(key EntraIDKey) bool {
-	if key.Kty != "RSA" {
-		return false
+func ValidateEntraJWT(ctx context.Context, jwtToken string, cfg config.AuthConfig, redisClient *redis.RedisClient) (*ClaimsEntraID, error) {
+
+	validate := func(force bool) (*jwt.Token, error) {
+
+		parser := jwt.NewParser(
+			jwt.WithIssuer(cfg.Issuer),
+			jwt.WithAudience(cfg.Audience),
+			jwt.WithExpirationRequired(),
+			jwt.WithIssuedAt(),
+			jwt.WithLeeway(2*time.Minute),
+			jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Alg()}),
+		)
+
+		return parser.ParseWithClaims(
+			jwtToken,
+			&ClaimsEntraID{},
+			func(token *jwt.Token) (any, error) {
+
+				_, ok := token.Method.(*jwt.SigningMethodRSA)
+				if !ok {
+					return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+				}
+
+				kid, ok := token.Header["kid"].(string)
+				if !ok || kid == "" {
+					return nil, fmt.Errorf("missing kid in token header")
+				}
+
+				entraKey, err := GetEntraIDPublicKey(ctx, &cfg, redisClient, kid, force)
+				if err != nil {
+					return nil, err
+				}
+
+				publicKey, err := rsaPublicKeyFromEntraJWK(entraKey)
+				if err != nil {
+					return nil, err
+				}
+
+				return publicKey, nil
+			},
+		)
 	}
 
-	if key.Use != "sig" {
-		return false
+	// FIRST ATTEMPT (using cache)
+	token, err := validate(false)
+
+	if err == nil {
+		return finalizeClaims(token, cfg)
 	}
 
-	if key.Kid == "" {
-		return false
-	}
+	retryNeeded :=
+		isSignatureError(err) ||
+			strings.Contains(err.Error(), "key not found")
 
-	if key.N == "" || key.E == "" {
-		return false
-	}
-
-	return true
-}
-
-func searchEntraIDKey(kid string, keys EntraIDResponse) (EntraIDKey, error) {
-	for _, key := range keys.Keys {
-		if key.Kid == kid {
-			return key, nil
-		}
-	}
-	return EntraIDKey{}, fmt.Errorf("key not found in EntraID response")
-}
-
-func GetBearerToken(headers http.Header) (string, error) {
-	authorization := headers.Get("Authorization")
-	if authorization == "" {
-		return "", fmt.Errorf("authorization header missing")
-	}
-
-	const prefix = "Bearer "
-	if (len(authorization) < len(prefix)) || !strings.EqualFold(prefix, authorization[:len(prefix)]) {
-		return "", fmt.Errorf("authorization scheme is not a bearer")
-	}
-
-	token := strings.TrimSpace(authorization[len(prefix):])
-	if token == "" {
-		return "", fmt.Errorf("token is missing")
-	}
-
-	return token, nil
-}
-
-func validateClaims(claims *ClaimsEntraID, cfg config.AuthConfig) error {
-	if claims.TenantID != cfg.TenantID {
-		return fmt.Errorf("tenant mismatch")
-	}
-	return nil
-}
-
-func IsValidJWTEntra(ctx context.Context, jwtToken string, cfg config.AuthConfig, redisClient *redis.RedisClient) (*ClaimsEntraID, error) {
-	parser := jwt.NewParser(
-		jwt.WithIssuer(cfg.Issuer),
-		jwt.WithAudience(cfg.Audience),
-		jwt.WithExpirationRequired(),
-		jwt.WithIssuedAt(),
-		jwt.WithLeeway(2*time.Minute),
-		jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Alg()}),
-	)
-
-	token, err := parser.ParseWithClaims(
-		jwtToken,
-		&ClaimsEntraID{},
-		func(token *jwt.Token) (any, error) {
-			_, ok := token.Method.(*jwt.SigningMethodRSA)
-			if !ok {
-				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-			}
-
-			kid, ok := token.Header["kid"].(string)
-			if !ok || kid == "" {
-				return nil, fmt.Errorf("missing kid in token header")
-			}
-
-			entraKey, err := GetEntraIDPublicKey(ctx, &cfg, redisClient, kid)
-			if err != nil {
-				return nil, err
-			}
-
-			publicKey, err := rsaPublicKeyFromEntraJWK(entraKey)
-			if err != nil {
-				return nil, err
-			}
-
-			return publicKey, nil
-		},
-	)
-	if err != nil {
+	if !retryNeeded {
 		return nil, fmt.Errorf("jwt validation failed: %w", err)
 	}
 
-	claims, ok := token.Claims.(*ClaimsEntraID)
-	if !ok {
-		return nil, fmt.Errorf("invalid claims type")
-	}
-
-	err = validateClaims(claims, cfg)
+	// SECOND ATTEMPT – force refresh JWKS
+	token, err = validate(true)
 	if err != nil {
-		return nil, fmt.Errorf("invalid token: %w", err)
+		return nil, fmt.Errorf("jwt validation failed after JWKS refresh: %w", err)
 	}
 
-	return claims, nil
+	return finalizeClaims(token, cfg)
 }
 
 func rsaPublicKeyFromEntraJWK(key EntraIDKey) (*rsa.PublicKey, error) {

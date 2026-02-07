@@ -22,7 +22,7 @@ func AuthMiddleware(cfg config.AuthConfig, redisClient *redis.RedisClient) func(
 				return
 			}
 
-			claims, err := auth.IsValidJWTEntra(r.Context(), bearerToken, cfg, redisClient)
+			claims, err := auth.ValidateEntraJWT(r.Context(), bearerToken, cfg, redisClient)
 			if err != nil {
 				handlers.JsonError(w, http.StatusUnauthorized, err.Error())
 				return

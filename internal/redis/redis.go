@@ -5,7 +5,7 @@ import (
 	"github.com/lucasmeller1/excel_api/internal/config"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/sync/singleflight"
-	"log"
+	//"log"
 	"time"
 )
 
@@ -33,7 +33,7 @@ func NewRedis(cfg config.RedisConfig) *RedisClient {
 func (r *RedisClient) GetWithSingleflight(ctx context.Context, key string, ttl time.Duration, getDataFunc func() ([]byte, error)) ([]byte, error) {
 	val, err := r.GetCachedResponse(ctx, key)
 	if err == nil && val != nil {
-		log.Printf("found %s in cache", key)
+		//log.Printf("found %s in cache", key)
 		return val, nil
 	}
 
@@ -43,7 +43,7 @@ func (r *RedisClient) GetWithSingleflight(ctx context.Context, key string, ttl t
 			return val, nil
 		}
 
-		log.Printf("NOT found %s in cache", key)
+		//log.Printf("NOT found %s in cache", key)
 		data, fetchErr := getDataFunc()
 		if fetchErr != nil {
 			return nil, fetchErr
@@ -72,4 +72,9 @@ func (r *RedisClient) GetCachedResponse(ctx context.Context, key string) ([]byte
 func (r *RedisClient) SetCachedResponse(ctx context.Context, key string, data []byte, ttl time.Duration) error {
 	fullKey := r.prefix + key
 	return r.client.Set(ctx, fullKey, data, ttl).Err()
+}
+
+func (r *RedisClient) InvalidateCache(ctx context.Context, key string) error {
+	fullKey := r.prefix + key
+	return r.client.Del(ctx, fullKey).Err()
 }
