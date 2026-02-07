@@ -20,7 +20,7 @@ type customServer struct {
 }
 
 func NewServer(cfg *config.Config, ch *clickhouse.HTTPCSVClient, redis *redis.RedisClient) *customServer {
-	r := getRoutes(cfg, ch)
+	r := getRoutes(cfg, ch, redis)
 
 	server := &customServer{
 		Server: &http.Server{

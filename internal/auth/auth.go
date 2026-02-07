@@ -2,29 +2,82 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	//"crypto/rsa"
 	"fmt"
+	"net/http"
+
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/lucasmeller1/excel_api/internal/config"
-	"net/http"
+	"github.com/lucasmeller1/excel_api/internal/handlers"
+	"github.com/lucasmeller1/excel_api/internal/redis"
+
 	//"os"
 	"strings"
 	"time"
 )
 
-type CustomClaims struct {
-	Groups   []string `json:"groups"`
-	TenantID string   `json:"tid"`
-	jwt.RegisteredClaims
+type EntraIDKey struct {
+	Kty           string   `json:"kty"`
+	Use           string   `json:"use"`
+	Kid           string   `json:"kid"`
+	X5t           string   `json:"x5t"`
+	N             string   `json:"n"`
+	E             string   `json:"e"`
+	X5c           []string `json:"x5c"`
+	CloudInstance string   `json:"cloud_instance_name"`
+	Issuer        string   `json:"issuer"`
 }
 
-type contextKey int
+type EntraIDResponse struct {
+	Keys []EntraIDKey `json:"keys"`
+}
 
-const ClaimsContextKey contextKey = iota
+func GetEntraPublicKey(ctx context.Context, cfgAuth *config.AuthConfig, redisClient *redis.RedisClient, kid string) (EntraIDKey, error) {
 
-func ClaimsFromContext(ctx context.Context) (*CustomClaims, bool) {
-	claims, ok := ctx.Value(ClaimsContextKey).(*CustomClaims)
-	return claims, ok
+	cachedBytes, err := redisClient.GetWithSingleflight(ctx, fmt.Sprintf("jwks:%s", kid), time.Hour, func() ([]byte, error) {
+		url := fmt.Sprintf("https://login.microsoftonline.com/%s/discovery/v2.0/keys", cfgAuth.TenantID)
+
+		dataBytes, err := handlers.GetRequest(ctx, url)
+		if err != nil {
+			return nil, err
+		}
+
+		var keys EntraIDResponse
+		err = json.Unmarshal(dataBytes, &keys)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal EntraID response: %w", err)
+		}
+
+		key, err := searchKey(kid, keys)
+		if err != nil {
+			return nil, err
+		}
+
+		return json.Marshal(key)
+	})
+
+	if err != nil {
+		return EntraIDKey{}, fmt.Errorf("failed to get key: %w", err)
+	}
+
+	var result EntraIDKey
+	err = json.Unmarshal(cachedBytes, &result)
+	if err != nil {
+		return EntraIDKey{}, fmt.Errorf("failed to decode cached key: %w", err)
+	}
+
+	return result, nil
+
+}
+
+func searchKey(kid string, keys EntraIDResponse) (EntraIDKey, error) {
+	for _, key := range keys.Keys {
+		if key.Kid == kid {
+			return key, nil
+		}
+	}
+	return EntraIDKey{}, fmt.Errorf("key not found in EntraID response")
 }
 
 func GetBearerToken(headers http.Header) (string, error) {
@@ -53,7 +106,7 @@ func validateClaims(claims *CustomClaims, cfg config.AuthConfig) error {
 	return nil
 }
 
-func IsValidJWTEntra(jwtToken string, cfg config.AuthConfig) (*CustomClaims, error) {
+func IsValidJWTEntra(ctx context.Context, jwtToken string, cfg config.AuthConfig) (*CustomClaims, error) {
 	publicKey, err := loadPublicKey(publicKeyPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load public key: %w", err)

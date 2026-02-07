@@ -1,15 +1,17 @@
 package app
 
 import (
+	"net/http"
+
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/lucasmeller1/excel_api/internal/clickhouse"
 	"github.com/lucasmeller1/excel_api/internal/config"
 	apimw "github.com/lucasmeller1/excel_api/internal/middleware"
-	"net/http"
+	"github.com/lucasmeller1/excel_api/internal/redis"
 )
 
-func getRoutes(cfg *config.Config, ch *clickhouse.HTTPCSVClient) chi.Router {
+func getRoutes(cfg *config.Config, ch *clickhouse.HTTPCSVClient, redisClient *redis.RedisClient) chi.Router {
 	r := chi.NewRouter()
 	r.Use(chimw.Logger)
 	r.Use(chimw.RequestID)
@@ -26,7 +28,7 @@ func getRoutes(cfg *config.Config, ch *clickhouse.HTTPCSVClient) chi.Router {
 
 	// authenticated
 	r.Group(func(r chi.Router) {
-		r.Use(apimw.AuthMiddleware(cfg.Auth))
+		r.Use(apimw.AuthMiddleware(cfg.Auth, redisClient))
 
 		r.Get("/export", ch.ExportCSV)
 		r.Get("/tables", ch.GetUserTables)
