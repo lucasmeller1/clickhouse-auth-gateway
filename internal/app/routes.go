@@ -11,7 +11,7 @@ import (
 	"github.com/lucasmeller1/excel_api/internal/redis"
 )
 
-func getRoutes(cfg *config.Config, ch *clickhouse.HTTPCSVClient, redisClient *redis.RedisClient) chi.Router {
+func getRoutes(cfg *config.Config, ch *clickhouse.HTTPClickhouseClient, redisClient *redis.RedisClient) chi.Router {
 	r := chi.NewRouter()
 	r.Use(chimw.Logger)
 	r.Use(chimw.RequestID)

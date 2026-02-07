@@ -13,7 +13,7 @@ import (
 	"github.com/lucasmeller1/excel_api/internal/handlers"
 )
 
-func (c *HTTPCSVClient) GetUserTables(w http.ResponseWriter, r *http.Request) {
+func (c *HTTPClickhouseClient) GetUserTables(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.ClaimsFromContext(r.Context())
 	if !ok {
 		handlers.JsonError(w, http.StatusInternalServerError, "failed to parse authorization claims")

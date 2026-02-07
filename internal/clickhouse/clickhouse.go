@@ -16,7 +16,7 @@ import (
 	"slices"
 )
 
-type HTTPCSVClient struct {
+type HTTPClickhouseClient struct {
 	baseURL       string
 	user          string
 	pass          string
@@ -25,14 +25,14 @@ type HTTPCSVClient struct {
 	redis         *redis.RedisClient
 }
 
-func NewHTTPCSV(cfg config.ClickhouseConfig, cfgPublicSchemas config.PublicSchemasConfig, redisClient *redis.RedisClient) *HTTPCSVClient {
+func NewHTTPClickhouse(cfg config.ClickhouseConfig, cfgPublicSchemas config.PublicSchemasConfig, redisClient *redis.RedisClient) *HTTPClickhouseClient {
 	t := http.DefaultTransport.(*http.Transport).Clone()
 	t.DisableCompression = true
 	t.MaxIdleConns = 100
 	t.MaxIdleConnsPerHost = 100
 	t.IdleConnTimeout = 90 * time.Second
 
-	return &HTTPCSVClient{
+	return &HTTPClickhouseClient{
 		baseURL: cfg.Hostname,
 		user:    cfg.User,
 		pass:    cfg.Password,

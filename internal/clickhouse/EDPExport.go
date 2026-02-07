@@ -16,7 +16,7 @@ import (
 	"github.com/lucasmeller1/excel_api/internal/handlers"
 )
 
-func (c *HTTPCSVClient) QueryCSV(ctx context.Context, sql string) (*http.Response, error) {
+func (c *HTTPClickhouseClient) QueryCSV(ctx context.Context, sql string) (*http.Response, error) {
 	log.Println("requisicao para clickhouse")
 	query := sql + " FORMAT CSVWithNames"
 
@@ -120,7 +120,7 @@ func (c *HTTPCSVClient) ExportCSV(w http.ResponseWriter, r *http.Request) {
 }
 */
 
-func (c *HTTPCSVClient) ExportCSV(w http.ResponseWriter, r *http.Request) {
+func (c *HTTPClickhouseClient) ExportCSV(w http.ResponseWriter, r *http.Request) {
 	statusCode, err := ValidateDatabase(r, c.publicSchemas)
 	if err != nil {
 		handlers.JsonError(w, statusCode, err.Error())
@@ -168,7 +168,7 @@ func (c *HTTPCSVClient) ExportCSV(w http.ResponseWriter, r *http.Request) {
 }
 
 // Helper to handle the decompression logic for the client
-func (c *HTTPCSVClient) serveGzip(w http.ResponseWriter, r *http.Request, data []byte) {
+func (c *HTTPClickhouseClient) serveGzip(w http.ResponseWriter, r *http.Request, data []byte) {
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
 	w.Header().Set("Content-Disposition", `attachment; filename="data.csv"`)
 

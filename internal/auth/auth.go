@@ -123,14 +123,14 @@ func GetBearerToken(headers http.Header) (string, error) {
 	return token, nil
 }
 
-func validateClaims(claims *CustomClaims, cfg config.AuthConfig) error {
+func validateClaims(claims *ClaimsEntraID, cfg config.AuthConfig) error {
 	if claims.TenantID != cfg.TenantID {
 		return fmt.Errorf("tenant mismatch")
 	}
 	return nil
 }
 
-func IsValidJWTEntra(ctx context.Context, jwtToken string, cfg config.AuthConfig, redisClient *redis.RedisClient) (*CustomClaims, error) {
+func IsValidJWTEntra(ctx context.Context, jwtToken string, cfg config.AuthConfig, redisClient *redis.RedisClient) (*ClaimsEntraID, error) {
 	parser := jwt.NewParser(
 		jwt.WithIssuer(cfg.Issuer),
 		jwt.WithAudience(cfg.Audience),
@@ -171,7 +171,7 @@ func IsValidJWTEntra(ctx context.Context, jwtToken string, cfg config.AuthConfig
 		return nil, fmt.Errorf("jwt validation failed: %w", err)
 	}
 
-	claims, ok := token.Claims.(*CustomClaims)
+	claims, ok := token.Claims.(*ClaimsEntraID)
 	if !ok {
 		return nil, fmt.Errorf("invalid claims type")
 	}

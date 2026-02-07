@@ -15,6 +15,7 @@ services:
       - CLICKHOUSE_USER=default
       - CLICKHOUSE_PASSWORD=default
       - CLICKHOUSE_DB=app_database
+    restart: unless-stopped
 
   redis:
     image: redis:7

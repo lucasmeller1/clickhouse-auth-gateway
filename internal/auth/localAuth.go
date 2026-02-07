@@ -56,7 +56,7 @@ func CreateSignedToken(cfg config.AuthConfig, groups []string) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, userClaims)
-	token.Header["kid"] = cfg.KeyID
+	//token.Header["kid"] = cfg.KeyID
 
 	signedToken, err := token.SignedString(privateKeyPEM)
 	if err != nil {
@@ -118,10 +118,12 @@ func IsValidJWT(jwtToken string, cfg config.AuthConfig) (*CustomClaims, error) {
 		return nil, fmt.Errorf("invalid claims type")
 	}
 
-	err = validateClaims(claims, cfg)
-	if err != nil {
-		return nil, fmt.Errorf("invalid token: %w", err)
-	}
+	/*
+		err = validateClaims(claims, cfg)
+		if err != nil {
+			return nil, fmt.Errorf("invalid token: %w", err)
+		}
+	*/
 
 	return claims, nil
 }

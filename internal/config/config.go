@@ -1,42 +1,13 @@
 package config
 
 import (
+	"fmt"
 	"github.com/joho/godotenv"
 	"log"
 	"os"
 	"strconv"
-	//"strings"
 	"time"
 )
-
-/*
-func schemaStringToSlice(s string) []string {
-	if strings.TrimSpace(s) == "" {
-		return nil
-	}
-
-	raw := strings.Split(s, ",")
-
-	seen := make(map[string]struct{}, len(raw))
-	out := make([]string, 0, len(raw))
-
-	for _, v := range raw {
-		v = strings.TrimSpace(v)
-		if v == "" {
-			continue
-		}
-
-		if _, exists := seen[v]; exists {
-			continue
-		}
-
-		seen[v] = struct{}{}
-		out = append(out, v)
-	}
-
-	return out
-}
-*/
 
 func mustEnv(name string) string {
 	value := os.Getenv(name)
@@ -53,9 +24,8 @@ func Load() *Config {
 	}
 
 	tid := mustEnv("TENANT_ID")
-	issuer := mustEnv("ISSUER_JWT")
+	issuer := fmt.Sprintf("https://login.microsoftonline.com/%s/v2.0", tid)
 	audience := mustEnv("AUDIENCE_JWT")
-	kid := mustEnv("KID_JWT")
 	addrPort := mustEnv("HTTP_PORT")
 	publicSchemas := []string{"Atualizacoes", "Consultas"}
 
@@ -76,10 +46,9 @@ func Load() *Config {
 			TenantID: tid,
 			Issuer:   issuer,
 			Audience: audience,
-			KeyID:    kid,
 		},
 		HTTP: HTTPConfig{
-			Addr:              addrPort,
+			Addr:              ":" + addrPort,
 			ReadTimeout:       10 * time.Second,
 			ReadHeaderTimeout: 10 * time.Second,
 			WriteTimeout:      60 * time.Second,
@@ -94,7 +63,7 @@ func Load() *Config {
 			User:          userClickhouse,
 			Password:      passwordClickhouse,
 			Schema:        schemaClickhouse,
-			Hostname:      hostnameClickhouse,
+			Hostname:      "http://" + hostnameClickhouse,
 			ClientTimeout: 60,
 		},
 		Redis: RedisConfig{

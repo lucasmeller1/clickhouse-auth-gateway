@@ -19,7 +19,7 @@ type customServer struct {
 	ShutdownTimeout time.Duration
 }
 
-func NewServer(cfg *config.Config, ch *clickhouse.HTTPCSVClient, redis *redis.RedisClient) *customServer {
+func NewServer(cfg *config.Config, ch *clickhouse.HTTPClickhouseClient, redis *redis.RedisClient) *customServer {
 	r := getRoutes(cfg, ch, redis)
 
 	server := &customServer{
