@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/lucasmeller1/excel_api/internal/auth"
@@ -26,6 +27,10 @@ func AuthMiddleware(cfg config.AuthConfig, redisClient *redis.RedisClient) func(
 			if err != nil {
 				handlers.JsonError(w, http.StatusUnauthorized, err.Error())
 				return
+			}
+
+			if cfg.Debug == "1" {
+				log.Println(bearerToken)
 			}
 
 			ctx := context.WithValue(r.Context(), auth.ClaimsContextKey, claims)

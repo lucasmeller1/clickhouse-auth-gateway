@@ -25,6 +25,7 @@ func Load() *Config {
 	audience := mustEnv("AUDIENCE_JWT")
 	addrPort := mustEnv("HTTP_PORT")
 	publicSchemas := []string{"Atualizacoes", "Consultas"}
+	debug := mustEnv("DEBUG")
 
 	userClickhouse := mustEnv("CLICKHOUSE_USER")
 	passwordClickhouse := mustEnv("CLICKHOUSE_PASSWORD")
@@ -43,6 +44,7 @@ func Load() *Config {
 			TenantID: tid,
 			Issuer:   issuer,
 			Audience: audience,
+			Debug:    debug,
 		},
 		Server: HTTPConfig{
 			Addr:              ":" + addrPort,
