@@ -47,7 +47,7 @@ func (c *HTTPClickhouseClient) GetUserTables(w http.ResponseWriter, r *http.Requ
 			database, 
 			name, 
 			concat(
-				'http://%s/export?database=',
+				'https://%s/export?database=',
 				database,
 				'&table=',
 				name

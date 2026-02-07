@@ -9,7 +9,7 @@ import (
 	"io"
 	"strings"
 
-	"log"
+	//"log"
 	"net/http"
 	"time"
 
@@ -17,7 +17,7 @@ import (
 )
 
 func (c *HTTPClickhouseClient) QueryCSV(ctx context.Context, sql string) (*http.Response, error) {
-	log.Println("requisicao para clickhouse")
+	//log.Println("requisicao para clickhouse")
 	query := sql + " FORMAT CSVWithNames"
 
 	req, err := http.NewRequestWithContext(
