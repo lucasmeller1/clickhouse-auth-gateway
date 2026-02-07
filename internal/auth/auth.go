@@ -41,6 +41,15 @@ type EntraIDResponse struct {
 	Keys []EntraIDKey `json:"keys"`
 }
 
+type contextKey int
+
+const ClaimsContextKey contextKey = iota
+
+func ClaimsFromContext(ctx context.Context) (*ClaimsEntraID, bool) {
+	claims, ok := ctx.Value(ClaimsContextKey).(*ClaimsEntraID)
+	return claims, ok
+}
+
 func GetEntraIDPublicKey(ctx context.Context, cfgAuth *config.AuthConfig, redisClient *redis.RedisClient, kid string) (EntraIDKey, error) {
 	cachedBytes, err := redisClient.GetWithSingleflight(ctx, fmt.Sprintf("jwks:%s", cfgAuth.TenantID), time.Hour, func() ([]byte, error) {
 		url := fmt.Sprintf("https://login.microsoftonline.com/%s/discovery/v2.0/keys", cfgAuth.TenantID)

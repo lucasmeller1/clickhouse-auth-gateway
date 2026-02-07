@@ -1,7 +1,7 @@
 package auth
 
 import (
-	"context"
+	//"context"
 	"crypto/rsa"
 	"fmt"
 	"github.com/golang-jwt/jwt/v5"
@@ -19,15 +19,6 @@ type CustomClaims struct {
 	Groups   []string `json:"groups"`
 	TenantID string   `json:"tid"`
 	jwt.RegisteredClaims
-}
-
-type contextKey int
-
-const ClaimsContextKey contextKey = iota
-
-func ClaimsFromContext(ctx context.Context) (*CustomClaims, bool) {
-	claims, ok := ctx.Value(ClaimsContextKey).(*CustomClaims)
-	return claims, ok
 }
 
 // ========= para teste local
