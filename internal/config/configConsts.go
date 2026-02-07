@@ -78,7 +78,7 @@ type RedisConfig struct {
 }
 
 type Config struct {
-	HTTP          HTTPConfig
+	Server        HTTPConfig
 	Auth          AuthConfig
 	PublicSchemas PublicSchemasConfig
 	Clickhouse    ClickhouseConfig

@@ -18,7 +18,7 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       REDIS_DB: ${REDIS_DB}
     depends_on:
-      - discovery_clickhouse
+      - clickhousedb
       - redis
     restart: unless-stopped
     networks:
@@ -38,7 +38,7 @@ services:
       - test_network
 
 
-  discovery_clickhouse:
+  clickhousedb:
     image: clickhousedb
     container_name: clickhousedb
     hostname: clickhousedb

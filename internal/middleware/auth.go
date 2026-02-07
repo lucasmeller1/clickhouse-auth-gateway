@@ -16,8 +16,8 @@ func AuthMiddleware(cfg config.AuthConfig, redisClient *redis.RedisClient) func(
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			bearerToken, err := auth.GetBearerToken(r.Header)
 			if err != nil {
-				oauthEntraID := fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/authorize", cfg.TenantID)
-				w.Header().Set("WWW-Authenticate", oauthEntraID)
+				urlEntraID := fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/authorize", cfg.TenantID)
+				w.Header().Set("WWW-Authenticate", urlEntraID)
 				handlers.JsonError(w, http.StatusUnauthorized, "unauthorized")
 				return
 			}

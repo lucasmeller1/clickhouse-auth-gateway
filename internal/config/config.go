@@ -44,7 +44,7 @@ func Load() *Config {
 			Issuer:   issuer,
 			Audience: audience,
 		},
-		HTTP: HTTPConfig{
+		Server: HTTPConfig{
 			Addr:              ":" + addrPort,
 			ReadTimeout:       10 * time.Second,
 			ReadHeaderTimeout: 10 * time.Second,

@@ -41,7 +41,7 @@ type EntraIDResponse struct {
 	Keys []EntraIDKey `json:"keys"`
 }
 
-func GetEntraPublicKey(ctx context.Context, cfgAuth *config.AuthConfig, redisClient *redis.RedisClient, kid string) (EntraIDKey, error) {
+func GetEntraIDPublicKey(ctx context.Context, cfgAuth *config.AuthConfig, redisClient *redis.RedisClient, kid string) (EntraIDKey, error) {
 	cachedBytes, err := redisClient.GetWithSingleflight(ctx, fmt.Sprintf("jwks:%s", cfgAuth.TenantID), time.Hour, func() ([]byte, error) {
 		url := fmt.Sprintf("https://login.microsoftonline.com/%s/discovery/v2.0/keys", cfgAuth.TenantID)
 
@@ -154,7 +154,7 @@ func IsValidJWTEntra(ctx context.Context, jwtToken string, cfg config.AuthConfig
 				return nil, fmt.Errorf("missing kid in token header")
 			}
 
-			entraKey, err := GetEntraPublicKey(ctx, &cfg, redisClient, kid)
+			entraKey, err := GetEntraIDPublicKey(ctx, &cfg, redisClient, kid)
 			if err != nil {
 				return nil, err
 			}
