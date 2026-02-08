@@ -16,7 +16,7 @@ import (
 func (c *HTTPClickhouseClient) GetUserTables(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.ClaimsFromContext(r.Context())
 	if !ok {
-		handlers.JsonError(w, http.StatusInternalServerError, "failed to parse authorization claims")
+		handlers.JsonError(w, http.StatusInternalServerError, "failed to get authorization claims from context")
 		return
 	}
 
@@ -32,7 +32,7 @@ func (c *HTTPClickhouseClient) GetUserTables(w http.ResponseWriter, r *http.Requ
 	}
 
 	if len(authorizedSet) == 0 {
-		handlers.JsonError(w, http.StatusForbidden, "no authorized databases found for your account")
+		handlers.JsonError(w, http.StatusForbidden, "no authorized databases available")
 		return
 	}
 
@@ -44,14 +44,14 @@ func (c *HTTPClickhouseClient) GetUserTables(w http.ResponseWriter, r *http.Requ
 
 	sql := fmt.Sprintf(`
 		SELECT 
-			database, 
-			name, 
+			database AS "Database", 
+			name AS "Table", 
 			concat(
 				'https://%s/export?database=',
 				database,
 				'&table=',
 				name
-			) AS download_url
+			) AS "URL Download"
 		FROM system.tables
 		WHERE database IN (%s)
 		ORDER BY

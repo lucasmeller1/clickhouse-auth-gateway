@@ -80,6 +80,7 @@ func Load() *Config {
 				MaxIdleConnsPerHost: 100,
 				IdleConnTimeout:     90 * time.Second,
 			},
+			TTLTablesInRedis: time.Minute,
 		},
 
 		Redis: RedisConfig{

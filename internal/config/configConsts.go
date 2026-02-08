@@ -67,9 +67,10 @@ type ClickhouseConfig struct {
 	Schema   string
 	Hostname string
 
-	ClientTimeout   int
-	PublicSchemas   []string
-	TransportConfig HTTPTransportClickhouse
+	ClientTimeout    int
+	PublicSchemas    []string
+	TransportConfig  HTTPTransportClickhouse
+	TTLTablesInRedis time.Duration
 }
 
 type HTTPTransportClickhouse struct {

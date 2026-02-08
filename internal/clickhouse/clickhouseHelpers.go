@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"log"
 	"net/http"
 	"time"
 
@@ -17,12 +16,13 @@ import (
 )
 
 type HTTPClickhouseClient struct {
-	baseURL       string
-	user          string
-	pass          string
-	client        *http.Client
-	publicSchemas []string
-	redis         *redis.RedisClient
+	baseURL          string
+	user             string
+	pass             string
+	client           *http.Client
+	publicSchemas    []string
+	redis            *redis.RedisClient
+	TTLTablesInRedis time.Duration
 }
 
 func NewHTTPClickhouse(cfg config.ClickhouseConfig, redisClient *redis.RedisClient) *HTTPClickhouseClient {
@@ -40,8 +40,9 @@ func NewHTTPClickhouse(cfg config.ClickhouseConfig, redisClient *redis.RedisClie
 			Timeout:   time.Second * time.Duration(cfg.ClientTimeout),
 			Transport: t,
 		},
-		publicSchemas: cfg.PublicSchemas,
-		redis:         redisClient,
+		publicSchemas:    cfg.PublicSchemas,
+		redis:            redisClient,
+		TTLTablesInRedis: cfg.TTLTablesInRedis,
 	}
 }
 
@@ -59,20 +60,19 @@ func normalizeClickhouseError(s string) string {
 		return "Database does not exist"
 	}
 
-	log.Println("Clickhouse error:", s)
 	return "internal server error"
 }
 
 func ValidateDatabase(r *http.Request, publicSchemas []string) (int, error) {
 	claims, ok := auth.ClaimsFromContext(r.Context())
 	if !ok {
-		return http.StatusInternalServerError, errors.New("internal server error")
+		return http.StatusInternalServerError, errors.New("failed to get authorization claims from context")
 	}
 
 	database := strings.TrimSpace(r.URL.Query().Get("database"))
 	table := strings.TrimSpace(r.URL.Query().Get("table"))
 
-	// because tables can be created at any time and will not be validate like the schemas,
+	// because tables can be created at any time and will not be validated like the schemas,
 	// there will be just a simple check for empty tables
 	if database == "" || table == "" {
 		return http.StatusBadRequest, errors.New("missing database or table")

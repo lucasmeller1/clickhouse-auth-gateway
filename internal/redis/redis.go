@@ -35,7 +35,6 @@ func NewRedis(cfg config.RedisConfig) *RedisClient {
 func (r *RedisClient) GetWithSingleflight(ctx context.Context, key string, ttl time.Duration, getDataFunc func() ([]byte, error)) ([]byte, error) {
 	val, err := r.GetCachedResponse(ctx, key)
 	if err == nil && val != nil {
-		//log.Printf("found %s in cache", key)
 		return val, nil
 	}
 
@@ -45,7 +44,6 @@ func (r *RedisClient) GetWithSingleflight(ctx context.Context, key string, ttl t
 			return val, nil
 		}
 
-		//log.Printf("NOT found %s in cache", key)
 		data, fetchErr := getDataFunc()
 		if fetchErr != nil {
 			return nil, fetchErr
