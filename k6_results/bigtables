@@ -1,0 +1,82 @@
+[lucas@archlinux k6_tests]$ k6 run bigtables_stages.js
+
+         /\      Grafana   /‾‾/
+    /\  /  \     |\  __   /  /
+   /  \/    \    | |/ /  /   ‾‾\
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/
+
+     execution: local
+        script: bigtables_stages.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 40 max VUs, 4m30s max duration (incl. graceful stop):
+              * default: Up to 40 looping VUs for 4m0s over 4 stages (gracefulRampDown: 30s, gracefulStop: 30s)
+
+WARN[0268] Request Failed                                error="request timeout"
+
+
+  █ TOTAL RESULTS
+
+    HTTP
+    http_req_duration..............: avg=7.94s min=809.25ms med=5.98s max=1m0s   p(90)=14.6s  p(95)=16.6s
+      { expected_response:true }...: avg=7.76s min=809.25ms med=5.97s max=56.04s p(90)=14.46s p(95)=16.6s
+    http_req_failed................: 0.34%  1 out of 288
+    http_reqs......................: 288    1.066008/s
+
+    EXECUTION
+    iteration_duration.............: avg=8.95s min=1.8s     med=6.98s max=1m1s   p(90)=15.61s p(95)=17.62s
+    iterations.....................: 288    1.066008/s
+    vus............................: 34     min=1        max=39
+    vus_max........................: 40     min=40       max=40
+
+    NETWORK
+    data_received..................: 2.6 GB 9.5 MB/s
+    data_sent......................: 23 MB  86 kB/s
+
+
+
+
+running (4m30.2s), 00/40 VUs, 288 complete and 34 interrupted iterations
+default ✓ [======================================] 34/40 VUs  4m0s
+[lucas@archlinux k6_tests]$ k6 run bigtables_stages.js
+
+         /\      Grafana   /‾‾/
+    /\  /  \     |\  __   /  /
+   /  \/    \    | |/ /  /   ‾‾\
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/
+
+     execution: local
+        script: bigtables_stages.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 40 max VUs, 4m30s max duration (incl. graceful stop):
+              * default: Up to 40 looping VUs for 4m0s over 4 stages (gracefulRampDown: 30s, gracefulStop: 30s)
+
+
+
+  █ TOTAL RESULTS
+
+    HTTP
+    http_req_duration..............: avg=405.14ms min=145.77ms med=321.82ms max=1.32s p(90)=789.46ms p(95)=936.54ms
+      { expected_response:true }...: avg=405.14ms min=145.77ms med=321.82ms max=1.32s p(90)=789.46ms p(95)=936.54ms
+    http_req_failed................: 0.00%  0 out of 2310
+    http_reqs......................: 2310   9.555879/s
+
+    EXECUTION
+    iteration_duration.............: avg=1.4s     min=1.14s    med=1.32s    max=2.34s p(90)=1.8s     p(95)=1.93s
+    iterations.....................: 2310   9.555879/s
+    vus............................: 25     min=1         max=39
+    vus_max........................: 40     min=40        max=40
+
+    NETWORK
+    data_received..................: 19 GB  78 MB/s
+    data_sent......................: 4.6 MB 19 kB/s
+
+
+
+
+running (4m01.7s), 00/40 VUs, 2310 complete and 0 interrupted iterations
+default ✓ [======================================] 00/40 VUs  4m0s
+[lucas@archlinux k6_tests]$

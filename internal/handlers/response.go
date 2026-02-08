@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"time"
 )
@@ -22,10 +21,7 @@ func JsonError(w http.ResponseWriter, statusCode int, message string) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(statusCode)
 
-	err := json.NewEncoder(w).Encode(ErrorResponse{Error: message})
-	if err != nil {
-		log.Println("json encode:", err)
-	}
+	_ = json.NewEncoder(w).Encode(ErrorResponse{Error: message})
 }
 
 func GetRequest(ctx context.Context, url string) ([]byte, error) {
