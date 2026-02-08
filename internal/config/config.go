@@ -17,56 +17,73 @@ func mustEnv(name string) string {
 	return value
 }
 
+func mustConvertStringToIntEnv(s string) int {
+	number, err := strconv.Atoi(os.Getenv(s))
+	if err != nil {
+		log.Fatalf("failed to convert %s: %v", s, err)
+	}
+	return number
+}
+
 func Load() *Config {
 	_ = godotenv.Load()
 
 	tid := mustEnv("TENANT_ID")
 	issuer := fmt.Sprintf("https://login.microsoftonline.com/%s/v2.0", tid)
 	audience := mustEnv("AUDIENCE_JWT")
-	addrPort := mustEnv("HTTP_PORT")
+	addrPort := ":" + mustEnv("HTTP_PORT")
 	publicSchemas := []string{"Atualizacoes", "Consultas"}
 	debug := mustEnv("DEBUG")
 
 	userClickhouse := mustEnv("CLICKHOUSE_USER")
 	passwordClickhouse := mustEnv("CLICKHOUSE_PASSWORD")
 	schemaClickhouse := mustEnv("CLICKHOUSE_SCHEMA")
-	hostnameClickhouse := mustEnv("CLICKHOUSE_HOSTNAME")
+	hostnameClickhouse := fmt.Sprintf("http://%s:%s", mustEnv("CLICKHOUSE_HOSTNAME"), mustEnv("CLICKHOUSE_PORT"))
 
-	redisAddr := mustEnv("REDIS_HOSTNAME")
+	redisHostname := mustEnv("REDIS_HOSTNAME")
+	redisPort := mustConvertStringToIntEnv("REDIS_PORT")
 	redisPassword := mustEnv("REDIS_PASSWORD")
-	redisDB, err := strconv.Atoi(os.Getenv("REDIS_DB"))
-	if err != nil {
-		log.Fatalf("failed to convert redis DB: %v", err)
-	}
+	redisDB := mustConvertStringToIntEnv("REDIS_DB")
 
 	config := Config{
+
 		Auth: AuthConfig{
 			TenantID: tid,
 			Issuer:   issuer,
 			Audience: audience,
 			Debug:    debug,
 		},
-		Server: HTTPConfig{
-			Addr:              ":" + addrPort,
-			ReadTimeout:       10 * time.Second,
-			ReadHeaderTimeout: 10 * time.Second,
-			WriteTimeout:      60 * time.Second,
-			IdleTimeout:       120 * time.Second,
-			MaxHeaderBytes:    1 << 20,
-			ShutdownTimeout:   5 * time.Second,
+
+		Server: ServerConfig{
+			Addr:                addrPort,
+			ReadTimeout:         10 * time.Second,
+			ReadHeaderTimeout:   10 * time.Second,
+			WriteTimeout:        60 * time.Second,
+			IdleTimeout:         120 * time.Second,
+			MaxHeaderBytes:      1 << 20,
+			ShutdownTimeout:     5 * time.Second,
+			MaxRequests:         100,
+			MaxRequestsInterval: time.Minute,
 		},
-		PublicSchemas: PublicSchemasConfig{
-			Schemas: publicSchemas,
-		},
+
 		Clickhouse: ClickhouseConfig{
 			User:          userClickhouse,
 			Password:      passwordClickhouse,
 			Schema:        schemaClickhouse,
-			Hostname:      "http://" + hostnameClickhouse,
+			Hostname:      hostnameClickhouse,
 			ClientTimeout: 60,
+			PublicSchemas: publicSchemas,
+
+			TransportConfig: HTTPTransportClickhouse{
+				MaxIdleConns:        100,
+				MaxIdleConnsPerHost: 100,
+				IdleConnTimeout:     90 * time.Second,
+			},
 		},
+
 		Redis: RedisConfig{
-			Addr:     redisAddr,
+			Hostname: redisHostname,
+			Port:     redisPort,
 			Password: redisPassword,
 			DB:       redisDB,
 		},

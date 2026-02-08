@@ -10,7 +10,7 @@ import (
 func main() {
 	cfg := config.Load()
 	redis := redis.NewRedis(cfg.Redis)
-	ch := clickhouse.NewHTTPClickhouse(cfg.Clickhouse, cfg.PublicSchemas, redis)
+	ch := clickhouse.NewHTTPClickhouse(cfg.Clickhouse, redis)
 
 	server := app.NewServer(cfg, ch, redis)
 	server.Run()

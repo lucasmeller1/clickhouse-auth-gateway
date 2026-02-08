@@ -1,6 +1,7 @@
 services:
   api:
-    image: excel_api:latest
+    #image: excel_api:latest
+    build: .
     container_name: excel_api
     ports:
       - "8080:8080"
@@ -11,11 +12,13 @@ services:
       DEBUG: "0"
 
       CLICKHOUSE_HOSTNAME: ${CLICKHOUSE_HOSTNAME}
+      CLICKHOUSE_PORT: ${CLICKHOUSE_PORT}
       CLICKHOUSE_USER: ${CLICKHOUSE_USER}
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
       CLICKHOUSE_SCHEMA: ${CLICKHOUSE_SCHEMA}
 
       REDIS_HOSTNAME: ${REDIS_HOSTNAME}
+      REDIS_PORT: ${REDIS_PORT}
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       REDIS_DB: ${REDIS_DB}
     depends_on:
@@ -47,8 +50,8 @@ services:
       - test_network
     ports:
       - "8123:8123"
-    volumes:
-      - ./volumes/clickhouse_db:/var/lib/clickhouse 
+    #volumes:
+    #  - ./volumes/clickhouse_db:/var/lib/clickhouse 
     environment:
       - CLICKHOUSE_USER=default
       - CLICKHOUSE_PASSWORD=default
@@ -65,8 +68,8 @@ services:
     command: redis-server --requirepass teste
     ports:
       - "6379:6379"
-    volumes:
-      - ./volumes/redis_data:/data
+    #volumes:
+    #  - ./volumes/redis_data:/data
     restart: unless-stopped
 
 

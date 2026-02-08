@@ -25,12 +25,12 @@ type HTTPClickhouseClient struct {
 	redis         *redis.RedisClient
 }
 
-func NewHTTPClickhouse(cfg config.ClickhouseConfig, cfgPublicSchemas config.PublicSchemasConfig, redisClient *redis.RedisClient) *HTTPClickhouseClient {
+func NewHTTPClickhouse(cfg config.ClickhouseConfig, redisClient *redis.RedisClient) *HTTPClickhouseClient {
 	t := http.DefaultTransport.(*http.Transport).Clone()
 	t.DisableCompression = true
-	t.MaxIdleConns = 100
-	t.MaxIdleConnsPerHost = 100
-	t.IdleConnTimeout = 90 * time.Second
+	t.MaxIdleConns = cfg.TransportConfig.MaxIdleConns
+	t.MaxIdleConnsPerHost = cfg.TransportConfig.MaxIdleConnsPerHost
+	t.IdleConnTimeout = cfg.TransportConfig.IdleConnTimeout
 
 	return &HTTPClickhouseClient{
 		baseURL: cfg.Hostname,
@@ -40,7 +40,7 @@ func NewHTTPClickhouse(cfg config.ClickhouseConfig, cfgPublicSchemas config.Publ
 			Timeout:   time.Second * time.Duration(cfg.ClientTimeout),
 			Transport: t,
 		},
-		publicSchemas: cfgPublicSchemas.Schemas,
+		publicSchemas: cfg.PublicSchemas,
 		redis:         redisClient,
 	}
 }

@@ -48,7 +48,7 @@ type AuthConfig struct {
 	Debug    string
 }
 
-type HTTPConfig struct {
+type ServerConfig struct {
 	Addr              string
 	ReadTimeout       time.Duration
 	ReadHeaderTimeout time.Duration
@@ -56,11 +56,9 @@ type HTTPConfig struct {
 	IdleTimeout       time.Duration
 	MaxHeaderBytes    int
 
-	ShutdownTimeout time.Duration
-}
-
-type PublicSchemasConfig struct {
-	Schemas []string
+	ShutdownTimeout     time.Duration
+	MaxRequests         int
+	MaxRequestsInterval time.Duration
 }
 
 type ClickhouseConfig struct {
@@ -69,19 +67,27 @@ type ClickhouseConfig struct {
 	Schema   string
 	Hostname string
 
-	ClientTimeout int
+	ClientTimeout   int
+	PublicSchemas   []string
+	TransportConfig HTTPTransportClickhouse
+}
+
+type HTTPTransportClickhouse struct {
+	MaxIdleConns        int
+	MaxIdleConnsPerHost int
+	IdleConnTimeout     time.Duration
 }
 
 type RedisConfig struct {
-	Addr     string
+	Hostname string
+	Port     int
 	Password string
 	DB       int
 }
 
 type Config struct {
-	Server        HTTPConfig
-	Auth          AuthConfig
-	PublicSchemas PublicSchemasConfig
-	Clickhouse    ClickhouseConfig
-	Redis         RedisConfig
+	Server     ServerConfig
+	Auth       AuthConfig
+	Clickhouse ClickhouseConfig
+	Redis      RedisConfig
 }
