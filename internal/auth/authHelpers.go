@@ -19,6 +19,7 @@ type ClaimsEntraID struct {
 	Groups   []string `json:"groups"`
 	TenantID string   `json:"tid"`
 	Version  string   `json:"ver"`
+	OID      string   `json:"oid"`
 	jwt.RegisteredClaims
 }
 
@@ -45,6 +46,24 @@ const ClaimsContextKey contextKey = iota
 func ClaimsFromContext(ctx context.Context) (*ClaimsEntraID, bool) {
 	claims, ok := ctx.Value(ClaimsContextKey).(*ClaimsEntraID)
 	return claims, ok
+}
+
+func GetUserOID(ctx context.Context) (string, error) {
+	claims, ok := ClaimsFromContext(ctx)
+
+	if !ok {
+		return "", fmt.Errorf("claims not found in context: user may not be authenticated")
+	}
+
+	if claims == nil {
+		return "", fmt.Errorf("claims found in context but object is nil")
+	}
+
+	if claims.OID == "" {
+		return "", fmt.Errorf("user authenticated but OID is missing from claims")
+	}
+
+	return claims.OID, nil
 }
 
 func validateEntraIDKey(key EntraIDKey) bool {

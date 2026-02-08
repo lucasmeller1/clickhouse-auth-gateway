@@ -17,6 +17,7 @@ import (
 type customServer struct {
 	Server          *http.Server
 	ShutdownTimeout time.Duration
+	redisClient     *redis.RedisClient
 }
 
 func NewServer(cfg *config.Config, ch *clickhouse.HTTPClickhouseClient, redis *redis.RedisClient) *customServer {
@@ -33,6 +34,7 @@ func NewServer(cfg *config.Config, ch *clickhouse.HTTPClickhouseClient, redis *r
 			MaxHeaderBytes:    cfg.Server.MaxHeaderBytes,
 		},
 		ShutdownTimeout: cfg.Server.ShutdownTimeout,
+		redisClient:     redis,
 	}
 
 	return server
@@ -63,6 +65,10 @@ func (svr *customServer) Run() {
 
 	if err := svr.Server.Shutdown(shutdownCtx); err != nil {
 		log.Printf("server shutdown failed: %v", err)
+	}
+
+	if err := svr.redisClient.Close(); err != nil {
+		log.Printf("error closing redis: %v", err)
 	}
 
 	log.Println("shutdown completed")

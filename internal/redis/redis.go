@@ -78,3 +78,7 @@ func (r *RedisClient) InvalidateCache(ctx context.Context, key string) error {
 	fullKey := r.prefix + key
 	return r.Client.Del(ctx, fullKey).Err()
 }
+
+func (r *RedisClient) Close() error {
+	return r.Client.Close()
+}
