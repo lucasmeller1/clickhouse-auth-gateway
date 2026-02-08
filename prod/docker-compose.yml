@@ -8,7 +8,7 @@ services:
     environment:
       TENANT_ID: ${TENANT_ID}
       AUDIENCE_JWT: ${AUDIENCE_JWT}
-      HTTP_PORT: 8080
+      SERVER_PORT: 8080
       DEBUG: "0"
 
       CLICKHOUSE_HOSTNAME: ${CLICKHOUSE_HOSTNAME}

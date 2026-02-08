@@ -2,11 +2,15 @@ package auth
 
 import (
 	"context"
+	"crypto/rsa"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lucasmeller1/excel_api/internal/config"
+	"github.com/lucasmeller1/excel_api/internal/handlers"
 
 	"strings"
 )
@@ -122,4 +126,40 @@ func isSignatureError(err error) bool {
 	return strings.Contains(msg, "signature") ||
 		strings.Contains(msg, "verification error") ||
 		strings.Contains(msg, "crypto/rsa")
+}
+
+func rsaPublicKeyFromEntraJWK(key EntraIDKey) (*rsa.PublicKey, error) {
+	raw, err := json.Marshal(map[string]any{
+		"kty": key.Kty,
+		"kid": key.Kid,
+		"use": key.Use,
+		"n":   key.N,
+		"e":   key.E,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal JWK: %w", err)
+	}
+
+	jwkKey, err := jwk.ParseKey(raw)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse JWK: %w", err)
+	}
+
+	var pubKey rsa.PublicKey
+	if err := jwkKey.Raw(&pubKey); err != nil {
+		return nil, fmt.Errorf("failed to extract RSA public key: %w", err)
+	}
+
+	return &pubKey, nil
+}
+
+func FetchEntraJWKS(ctx context.Context, cfgAuth *config.AuthConfig) ([]byte, error) {
+	url := fmt.Sprintf("https://login.microsoftonline.com/%s/discovery/v2.0/keys", cfgAuth.TenantID)
+
+	dataBytes, err := handlers.GetRequest(ctx, url)
+	if err != nil {
+		return nil, err
+	}
+
+	return dataBytes, nil
 }

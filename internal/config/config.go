@@ -28,13 +28,14 @@ func mustConvertStringToIntEnv(s string) int {
 func Load() *Config {
 	_ = godotenv.Load()
 
+	addrPort := ":" + mustEnv("SERVER_PORT")
+
 	tid := mustEnv("TENANT_ID")
 	issuer := fmt.Sprintf("https://login.microsoftonline.com/%s/v2.0", tid)
 	audience := mustEnv("AUDIENCE_JWT")
-	addrPort := ":" + mustEnv("HTTP_PORT")
-	publicSchemas := []string{"Atualizacoes", "Consultas"}
 	debug := mustEnv("DEBUG")
 
+	publicSchemas := []string{"Atualizacoes", "Consultas"}
 	userClickhouse := mustEnv("CLICKHOUSE_USER")
 	passwordClickhouse := mustEnv("CLICKHOUSE_PASSWORD")
 	schemaClickhouse := mustEnv("CLICKHOUSE_SCHEMA")
