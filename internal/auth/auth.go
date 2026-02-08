@@ -1,124 +1,129 @@
 package auth
 
 import (
-	"crypto/rsa"
+	"context"
+	"encoding/json"
 	"fmt"
+
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/lucasmeller1/excel_api/internal/config"
-	"os"
+	"github.com/lucasmeller1/excel_api/internal/redis"
+
+	"strings"
 	"time"
 )
 
-const (
-	privateKeyPath = "./private.pem"
-	publicKeyPath  = "./public.pem"
-)
+func GetCachedTIDKeys(ctx context.Context, cfgAuth *config.AuthConfig, redisClient *redis.RedisClient, force bool) ([]byte, error) {
 
-type CustomClaims struct {
-	Groups   []string `json:"groups"`
-	TenantID string   `json:"tid"`
-	jwt.RegisteredClaims
+	cacheKey := fmt.Sprintf("jwks:%s", cfgAuth.TenantID)
+
+	if force {
+		// bypass cache completely
+		data, err := FetchEntraJWKS(ctx, cfgAuth)
+		if err != nil {
+			return nil, err
+		}
+
+		// update cache directly
+		_ = redisClient.SetCachedResponse(ctx, cacheKey, data, time.Hour)
+
+		return data, nil
+	}
+
+	return redisClient.GetWithSingleflight(ctx, cacheKey, time.Hour, func() ([]byte, error) {
+		return FetchEntraJWKS(ctx, cfgAuth)
+	})
 }
 
-// ========= para teste local
-func CreateSignedToken(cfg config.AuthConfig, groups []string) (string, error) {
-	privateKeyPEM, err := loadPrivateKey(privateKeyPath)
+func GetEntraIDPublicKey(ctx context.Context, cfgAuth *config.AuthConfig, redisClient *redis.RedisClient, kid string, force bool) (EntraIDKey, error) {
+	cachedBytes, err := GetCachedTIDKeys(ctx, cfgAuth, redisClient, force)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse private key: %w", err)
+		return EntraIDKey{}, fmt.Errorf("failed to get tid keys: %w", err)
 	}
 
-	guidGroups := make([]string, 0)
-	for _, g := range groups {
-		guidGroups = append(guidGroups, config.SchemaToGUID[g])
-	}
-
-	userClaims := CustomClaims{
-		Groups:   guidGroups,
-		TenantID: cfg.TenantID,
-		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer:    "local_excel_api",
-			Subject:   "lucasmeller",
-			Audience:  []string{"excel_api"},
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 2)),
-			NotBefore: jwt.NewNumericDate(time.Now()),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-		},
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodRS256, userClaims)
-	token.Header["kid"] = cfg.KeyID
-
-	signedToken, err := token.SignedString(privateKeyPEM)
+	var keys EntraIDResponse
+	err = json.Unmarshal(cachedBytes, &keys)
 	if err != nil {
-		return "", fmt.Errorf("failed to sign token: %w", err)
+		return EntraIDKey{}, fmt.Errorf("failed to unmarshal EntraID response: %w", err)
 	}
 
-	return signedToken, nil
+	key, err := searchEntraIDKey(kid, keys)
+	if err != nil {
+		return EntraIDKey{}, err
+	}
+
+	if !validateEntraIDKey(key) {
+		return EntraIDKey{}, fmt.Errorf("invalid JWKS key")
+	}
+
+	return key, nil
 }
 
-func loadPrivateKey(path string) (*rsa.PrivateKey, error) {
-	key, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read private key: %w", err)
+func ValidateEntraJWT(ctx context.Context, jwtToken string, cfg config.AuthConfig, redisClient *redis.RedisClient) (*ClaimsEntraID, error) {
+
+	validate := func(force bool) (*jwt.Token, error) {
+
+		// no validation for NBF because its the same as IAT
+		parser := jwt.NewParser(
+			jwt.WithIssuer(cfg.Issuer),
+			jwt.WithAudience(cfg.Audience),
+			jwt.WithExpirationRequired(),
+			jwt.WithIssuedAt(),
+			jwt.WithLeeway(2*time.Minute),
+			jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Alg()}),
+		)
+
+		return parser.ParseWithClaims(
+			jwtToken,
+			&ClaimsEntraID{},
+			// JWT Header Validation
+			func(token *jwt.Token) (any, error) {
+
+				_, ok := token.Method.(*jwt.SigningMethodRSA)
+				if !ok {
+					return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+				}
+
+				kid, ok := token.Header["kid"].(string)
+				if !ok || kid == "" {
+					return nil, fmt.Errorf("missing kid in token header")
+				}
+
+				entraKey, err := GetEntraIDPublicKey(ctx, &cfg, redisClient, kid, force)
+				if err != nil {
+					return nil, err
+				}
+
+				publicKey, err := rsaPublicKeyFromEntraJWK(entraKey)
+				if err != nil {
+					return nil, err
+				}
+
+				return publicKey, nil
+			},
+		)
 	}
-	return jwt.ParseRSAPrivateKeyFromPEM(key)
-}
 
-func loadPublicKey(path string) (*rsa.PublicKey, error) {
-	key, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read public key: %w", err)
-	}
-	return jwt.ParseRSAPublicKeyFromPEM(key)
-}
+	// FIRST ATTEMPT (using cache)
+	token, err := validate(false)
 
-// =========
-
-func validateClaims(claims *CustomClaims, cfg config.AuthConfig) error {
-	if claims.TenantID != cfg.TenantID {
-		return fmt.Errorf("tenant mismatch")
-	}
-	return nil
-}
-
-func IsValidJWT(jwtToken string, cfg config.AuthConfig) (*CustomClaims, error) {
-	publicKey, err := loadPublicKey(publicKeyPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load public key: %w", err)
+	if err == nil {
+		return finalizeClaims(token, cfg)
 	}
 
-	parser := jwt.NewParser(
-		jwt.WithIssuer(cfg.Issuer),
-		jwt.WithAudience(cfg.Audience),
-		jwt.WithExpirationRequired(),
-		jwt.WithIssuedAt(),
-		jwt.WithLeeway(2*time.Minute),
-		jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Alg()}),
-	)
+	retryNeeded :=
+		isSignatureError(err) ||
+			strings.Contains(err.Error(), "key not found")
 
-	token, err := parser.ParseWithClaims(
-		jwtToken,
-		&CustomClaims{},
-		func(token *jwt.Token) (any, error) {
-			if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-			}
-			return publicKey, nil
-		},
-	)
-	if err != nil {
+	if !retryNeeded {
 		return nil, fmt.Errorf("jwt validation failed: %w", err)
 	}
 
-	claims, ok := token.Claims.(*CustomClaims)
-	if !ok {
-		return nil, fmt.Errorf("invalid claims type")
-	}
-
-	err = validateClaims(claims, cfg)
+	// SECOND ATTEMPT – force refresh JWKS
+	token, err = validate(true)
 	if err != nil {
-		return nil, fmt.Errorf("invalid token: %w", err)
+		return nil, fmt.Errorf("jwt validation failed after JWKS refresh: %w", err)
 	}
 
-	return claims, nil
+	return finalizeClaims(token, cfg)
 }

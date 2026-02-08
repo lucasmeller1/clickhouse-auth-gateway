@@ -19,20 +19,20 @@ type customServer struct {
 	ShutdownTimeout time.Duration
 }
 
-func NewServer(cfg *config.Config, ch *clickhouse.HTTPCSVClient, redis *redis.RedisClient) *customServer {
-	r := getRoutes(cfg, ch)
+func NewServer(cfg *config.Config, ch *clickhouse.HTTPClickhouseClient, redis *redis.RedisClient) *customServer {
+	r := getRoutes(cfg, ch, redis)
 
 	server := &customServer{
 		Server: &http.Server{
-			Addr:              cfg.HTTP.Addr,
+			Addr:              cfg.Server.Addr,
 			Handler:           r,
-			ReadTimeout:       cfg.HTTP.ReadTimeout,
-			ReadHeaderTimeout: cfg.HTTP.ReadHeaderTimeout,
-			WriteTimeout:      cfg.HTTP.WriteTimeout,
-			IdleTimeout:       cfg.HTTP.IdleTimeout,
-			MaxHeaderBytes:    cfg.HTTP.MaxHeaderBytes,
+			ReadTimeout:       cfg.Server.ReadTimeout,
+			ReadHeaderTimeout: cfg.Server.ReadHeaderTimeout,
+			WriteTimeout:      cfg.Server.WriteTimeout,
+			IdleTimeout:       cfg.Server.IdleTimeout,
+			MaxHeaderBytes:    cfg.Server.MaxHeaderBytes,
 		},
-		ShutdownTimeout: cfg.HTTP.ShutdownTimeout,
+		ShutdownTimeout: cfg.Server.ShutdownTimeout,
 	}
 
 	return server

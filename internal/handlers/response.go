@@ -1,15 +1,21 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
-
-	"github.com/lucasmeller1/excel_api/internal/config"
+	"time"
 )
 
 type ErrorResponse struct {
 	Error string `json:"error"`
+}
+
+var httpClient = &http.Client{
+	Timeout: 15 * time.Second,
 }
 
 func JsonError(w http.ResponseWriter, statusCode int, message string) {
@@ -22,12 +28,27 @@ func JsonError(w http.ResponseWriter, statusCode int, message string) {
 	}
 }
 
-func LookupSchemaByGUID(s string) (string, bool) {
-	schema, ok := config.GUIDToSchema[s]
-	return schema, ok
-}
+func GetRequest(ctx context.Context, url string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to created request: %w", err)
+	}
 
-func LookupGUIDBySchema(s string) (string, bool) {
-	guid, ok := config.SchemaToGUID[s]
-	return guid, ok
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("unexpected status code %d: %w", resp.StatusCode, err)
+	}
+
+	limitReader := io.LimitReader(resp.Body, 10*1024*1024)
+	data, err := io.ReadAll(limitReader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	return data, nil
 }

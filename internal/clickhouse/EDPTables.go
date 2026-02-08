@@ -8,13 +8,15 @@ import (
 
 	"net/http"
 
+	"github.com/lucasmeller1/excel_api/internal/auth"
+	"github.com/lucasmeller1/excel_api/internal/config"
 	"github.com/lucasmeller1/excel_api/internal/handlers"
 )
 
-func (c *HTTPCSVClient) GetUserTables(w http.ResponseWriter, r *http.Request) {
-	claims, ok := handlers.ClaimsFromContext(r.Context())
+func (c *HTTPClickhouseClient) GetUserTables(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.ClaimsFromContext(r.Context())
 	if !ok {
-		handlers.JsonError(w, http.StatusInternalServerError, "failed to parse authorization claims")
+		handlers.JsonError(w, http.StatusInternalServerError, "failed to get authorization claims from context")
 		return
 	}
 
@@ -24,13 +26,13 @@ func (c *HTTPCSVClient) GetUserTables(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, guid := range claims.Groups {
-		if schema, found := handlers.LookupSchemaByGUID(guid); found {
+		if schema, found := config.LookupSchemaByGUID(guid); found {
 			authorizedSet[schema] = struct{}{}
 		}
 	}
 
 	if len(authorizedSet) == 0 {
-		handlers.JsonError(w, http.StatusForbidden, "no authorized databases found for your account")
+		handlers.JsonError(w, http.StatusForbidden, "no authorized databases available")
 		return
 	}
 
@@ -42,14 +44,14 @@ func (c *HTTPCSVClient) GetUserTables(w http.ResponseWriter, r *http.Request) {
 
 	sql := fmt.Sprintf(`
 		SELECT 
-			database, 
-			name, 
+			database AS "Database", 
+			name AS "Table", 
 			concat(
-				'http://%s/export?database=',
+				'https://%s/export?database=',
 				database,
 				'&table=',
 				name
-			) AS download_url
+			) AS "URL Download"
 		FROM system.tables
 		WHERE database IN (%s)
 		ORDER BY
