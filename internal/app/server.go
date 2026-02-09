@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -15,24 +16,35 @@ import (
 )
 
 type customServer struct {
-	Server          *http.Server
+	PublicServer    *http.Server
+	PrivateServer   *http.Server
 	ShutdownTimeout time.Duration
 	redisClient     *redis.RedisClient
 }
 
 func NewServer(cfg *config.Config, ch *clickhouse.HTTPClickhouseClient, redis *redis.RedisClient) *customServer {
-	r := getRoutes(cfg, ch, redis)
+	publicRouter := getPublicRoutes(cfg, ch, redis)
+	privateRouter := GetPrivateRoutes(cfg, redis)
 
 	server := &customServer{
-		Server: &http.Server{
+		// main server - API Gateway Clickhouse
+		PublicServer: &http.Server{
 			Addr:              cfg.Server.Addr,
-			Handler:           r,
+			Handler:           publicRouter,
 			ReadTimeout:       cfg.Server.ReadTimeout,
 			ReadHeaderTimeout: cfg.Server.ReadHeaderTimeout,
 			WriteTimeout:      cfg.Server.WriteTimeout,
 			IdleTimeout:       cfg.Server.IdleTimeout,
 			MaxHeaderBytes:    cfg.Server.MaxHeaderBytes,
 		},
+		// internal docker server to invalidate tables when updated
+		PrivateServer: &http.Server{
+			Addr:         ":8081",
+			Handler:      privateRouter,
+			ReadTimeout:  5 * time.Second,
+			WriteTimeout: 5 * time.Second,
+		},
+
 		ShutdownTimeout: cfg.Server.ShutdownTimeout,
 		redisClient:     redis,
 	}
@@ -46,16 +58,27 @@ func (svr *customServer) Run() {
 		os.Interrupt,
 		syscall.SIGTERM,
 	)
-
 	defer stop()
 
-	go func(addrPort string) {
-		log.Printf("server started on port %s\n", addrPort)
+	var wg sync.WaitGroup
 
-		if err := svr.Server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("server error: %v", err)
+	// --- Start Public Server ---
+	wg.Go(func() {
+		log.Printf("public API started on port %s\n", svr.PublicServer.Addr)
+		if err := svr.PublicServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Printf("public server error: %v", err)
+			stop()
 		}
-	}(svr.Server.Addr)
+	})
+
+	// --- Start Internal Server ---
+	wg.Go(func() {
+		log.Printf("internal API started on port %s\n", svr.PrivateServer.Addr)
+		if err := svr.PrivateServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Printf("internal server error: %v", err)
+			stop()
+		}
+	})
 
 	<-ctx.Done()
 	log.Println("shutdown initiated")
@@ -63,13 +86,26 @@ func (svr *customServer) Run() {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), svr.ShutdownTimeout)
 	defer cancel()
 
-	if err := svr.Server.Shutdown(shutdownCtx); err != nil {
-		log.Printf("server shutdown failed: %v", err)
-	}
+	var shutdownWg sync.WaitGroup
+
+	shutdownWg.Go(func() {
+		if err := svr.PublicServer.Shutdown(shutdownCtx); err != nil {
+			log.Printf("public server shutdown failed: %v", err)
+		}
+	})
+
+	shutdownWg.Go(func() {
+		if err := svr.PrivateServer.Shutdown(shutdownCtx); err != nil {
+			log.Printf("internal server shutdown failed: %v", err)
+		}
+	})
+
+	shutdownWg.Wait()
 
 	if err := svr.redisClient.Close(); err != nil {
 		log.Printf("error closing redis: %v", err)
 	}
 
+	wg.Wait()
 	log.Println("shutdown completed")
 }

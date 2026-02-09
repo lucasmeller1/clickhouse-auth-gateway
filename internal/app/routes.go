@@ -14,7 +14,7 @@ import (
 	"github.com/lucasmeller1/excel_api/internal/redis"
 )
 
-func getRoutes(cfg *config.Config, ch *clickhouse.HTTPClickhouseClient, redisClient *redis.RedisClient) chi.Router {
+func getPublicRoutes(cfg *config.Config, ch *clickhouse.HTTPClickhouseClient, redisClient *redis.RedisClient) chi.Router {
 	r := chi.NewRouter()
 	r.Use(chimw.Recoverer)
 
@@ -60,6 +60,17 @@ func getRoutes(cfg *config.Config, ch *clickhouse.HTTPClickhouseClient, redisCli
 
 		r.Get("/export", ch.ExportCSV)
 		r.Get("/tables", ch.GetUserTables)
+	})
+
+	return r
+}
+
+func GetPrivateRoutes(cfg *config.Config, redis *redis.RedisClient) chi.Router {
+	r := chi.NewRouter()
+	r.Use(chimw.Recoverer)
+
+	r.Get("/internalHealthz", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("ok"))
 	})
 
 	return r
