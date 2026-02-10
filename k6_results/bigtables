@@ -13,32 +13,31 @@
      scenarios: (100.00%) 1 scenario, 40 max VUs, 4m30s max duration (incl. graceful stop):
               * default: Up to 40 looping VUs for 4m0s over 4 stages (gracefulRampDown: 30s, gracefulStop: 30s)
 
-WARN[0268] Request Failed                                error="request timeout"
 
 
   █ TOTAL RESULTS
 
     HTTP
-    http_req_duration..............: avg=7.94s min=809.25ms med=5.98s max=1m0s   p(90)=14.6s  p(95)=16.6s
-      { expected_response:true }...: avg=7.76s min=809.25ms med=5.97s max=56.04s p(90)=14.46s p(95)=16.6s
-    http_req_failed................: 0.34%  1 out of 288
-    http_reqs......................: 288    1.066008/s
+    http_req_duration..............: avg=23.2s  min=1.07s med=17.81s max=56.65s p(90)=54.69s p(95)=55.22s
+      { expected_response:true }...: avg=23.2s  min=1.07s med=17.81s max=56.65s p(90)=54.69s p(95)=55.22s
+    http_req_failed................: 0.00%  0 out of 145
+    http_reqs......................: 145    0.536317/s
 
     EXECUTION
-    iteration_duration.............: avg=8.95s min=1.8s     med=6.98s max=1m1s   p(90)=15.61s p(95)=17.62s
-    iterations.....................: 288    1.066008/s
-    vus............................: 34     min=1        max=39
+    iteration_duration.............: avg=23.78s min=2.07s med=16.7s  max=57.65s p(90)=55.72s p(95)=56.32s
+    iterations.....................: 143    0.528919/s
+    vus............................: 19     min=1        max=39
     vus_max........................: 40     min=40       max=40
 
     NETWORK
-    data_received..................: 2.6 GB 9.5 MB/s
-    data_sent......................: 23 MB  86 kB/s
+    data_received..................: 3.7 GB 14 MB/s
+    data_sent......................: 35 MB  128 kB/s
 
 
 
 
-running (4m30.2s), 00/40 VUs, 288 complete and 34 interrupted iterations
-default ✓ [======================================] 34/40 VUs  4m0s
+running (4m30.4s), 00/40 VUs, 143 complete and 19 interrupted iterations
+default ✓ [======================================] 19/40 VUs  4m0s
 [lucas@archlinux k6_tests]$ k6 run bigtables_stages.js
 
          /\      Grafana   /‾‾/
@@ -59,24 +58,29 @@ default ✓ [======================================] 34/40 VUs  4m0s
   █ TOTAL RESULTS
 
     HTTP
-    http_req_duration..............: avg=405.14ms min=145.77ms med=321.82ms max=1.32s p(90)=789.46ms p(95)=936.54ms
-      { expected_response:true }...: avg=405.14ms min=145.77ms med=321.82ms max=1.32s p(90)=789.46ms p(95)=936.54ms
-    http_req_failed................: 0.00%  0 out of 2310
-    http_reqs......................: 2310   9.555879/s
+    http_req_duration..............: avg=1.77s min=414.77ms med=1.27s max=5.01s p(90)=3.73s p(95)=4.02s
+      { expected_response:true }...: avg=1.77s min=414.77ms med=1.27s max=5.01s p(90)=3.73s p(95)=4.02s
+    http_req_failed................: 0.00%  0 out of 1188
+    http_reqs......................: 1188   4.874773/s
 
     EXECUTION
-    iteration_duration.............: avg=1.4s     min=1.14s    med=1.32s    max=2.34s p(90)=1.8s     p(95)=1.93s
-    iterations.....................: 2310   9.555879/s
-    vus............................: 25     min=1         max=39
+    iteration_duration.............: avg=2.78s min=1.41s    med=2.29s max=6.02s p(90)=4.74s p(95)=5.03s
+    iterations.....................: 1188   4.874773/s
+    vus............................: 21     min=1         max=39
     vus_max........................: 40     min=40        max=40
 
     NETWORK
-    data_received..................: 19 GB  78 MB/s
-    data_sent......................: 4.6 MB 19 kB/s
+    data_received..................: 28 GB  114 MB/s
+    data_sent......................: 2.4 MB 9.8 kB/s
 
 
 
 
-running (4m01.7s), 00/40 VUs, 2310 complete and 0 interrupted iterations
+running (4m03.7s), 00/40 VUs, 1188 complete and 0 interrupted iterations
 default ✓ [======================================] 00/40 VUs  4m0s
 [lucas@archlinux k6_tests]$
+
+26MB em gzip
+115MB no powerquery apos extrair
+
+300k linhas, 35 colunas

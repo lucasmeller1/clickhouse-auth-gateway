@@ -39,3 +39,22 @@ func AuthMiddleware(cfg config.AuthConfig, redisClient *redis.RedisClient) func(
 		})
 	}
 }
+
+func PrivateMiddleware(cfg config.PrivateServerConfig) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			bearerToken, err := auth.GetBearerToken(r.Header)
+			if err != nil {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+
+			if bearerToken != cfg.InvalidateCacheToken {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}

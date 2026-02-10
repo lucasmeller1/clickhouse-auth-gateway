@@ -87,8 +87,13 @@ type RedisConfig struct {
 }
 
 type Config struct {
-	Server     ServerConfig
-	Auth       AuthConfig
-	Clickhouse ClickhouseConfig
-	Redis      RedisConfig
+	Server        ServerConfig
+	Auth          AuthConfig
+	Clickhouse    ClickhouseConfig
+	Redis         RedisConfig
+	PrivateServer PrivateServerConfig
+}
+
+type PrivateServerConfig struct {
+	InvalidateCacheToken string
 }

@@ -69,8 +69,10 @@ func GetPrivateRoutes(cfg *config.Config, redis *redis.RedisClient) chi.Router {
 	r := chi.NewRouter()
 	r.Use(chimw.Recoverer)
 
-	r.Get("/internalHealthz", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("ok"))
+	r.Group(func(r chi.Router) {
+		r.Use(apimw.PrivateMiddleware(cfg.PrivateServer))
+
+		r.Post("/invalidate", redis.InvalidateCacheEndpoint)
 	})
 
 	return r

@@ -231,7 +231,7 @@ SELECT
 
     concat('Transaction description ', toString(number)) AS description,
     concat('Notes ', toString(rand() % 1000))     AS notes
-FROM numbers(100000);
+FROM numbers(300000);
 
 
 -- Inserting 100,000 random records into Contabil_1.financial_records

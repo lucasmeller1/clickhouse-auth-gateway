@@ -46,6 +46,8 @@ func Load() *Config {
 	redisPassword := mustEnv("REDIS_PASSWORD")
 	redisDB := mustConvertStringToIntEnv("REDIS_DB")
 
+	invalidateCacheToken := mustEnv("INVALIDATE_CACHE_TOKEN")
+
 	config := Config{
 
 		Auth: AuthConfig{
@@ -88,6 +90,10 @@ func Load() *Config {
 			Port:     redisPort,
 			Password: redisPassword,
 			DB:       redisDB,
+		},
+
+		PrivateServer: PrivateServerConfig{
+			InvalidateCacheToken: invalidateCacheToken,
 		},
 	}
 

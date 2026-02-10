@@ -3,6 +3,8 @@ package redis
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"strings"
 
 	"github.com/lucasmeller1/excel_api/internal/config"
 	"github.com/redis/go-redis/v9"
@@ -81,4 +83,25 @@ func (r *RedisClient) InvalidateCache(ctx context.Context, key string) error {
 
 func (r *RedisClient) Close() error {
 	return r.Client.Close()
+}
+
+// not idiomatic, change later
+func (redis *RedisClient) InvalidateCacheEndpoint(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	dbName := strings.TrimSpace(r.URL.Query().Get("database"))
+	tableName := strings.TrimSpace(r.URL.Query().Get("table"))
+
+	if dbName == "" || tableName == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("missing database or table parameter"))
+		return
+	}
+
+	cacheKey := fmt.Sprintf("csv:%s:%s", dbName, tableName)
+
+	if redis.InvalidateCache(ctx, cacheKey) != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }
