@@ -3,6 +3,7 @@ package redis
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 
@@ -26,6 +27,13 @@ func NewRedis(cfg config.RedisConfig) *RedisClient {
 		DB:       cfg.DB,
 		Protocol: 3,
 	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	if err := rdb.Ping(ctx).Err(); err != nil {
+		log.Fatal("failed to start redis")
+	}
 
 	return &RedisClient{
 		Client: rdb,

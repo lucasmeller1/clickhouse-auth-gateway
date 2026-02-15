@@ -58,8 +58,8 @@ func getPublicRoutes(cfg *config.Config, ch *clickhouse.HTTPClickhouseClient, re
 			}),
 		))
 
-		r.Get("/export", ch.ExportCSV)
-		r.Get("/tables", ch.GetUserTables)
+		r.Get("/v1/export", ch.ExportCSV)
+		r.Get("/v1/tables", ch.GetUserTables)
 	})
 
 	return r
