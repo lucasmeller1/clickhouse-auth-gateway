@@ -7,11 +7,15 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
+
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/stdout/stdoutlog"
+	// "go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+	// "go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 
 	// "go.opentelemetry.io/otel/exporters/stdout/stdoutmetric"
-	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+	// "go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 
 	// "go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/propagation"
@@ -70,14 +74,14 @@ func SetupOTelSDK(ctx context.Context) (func(context.Context) error, error) {
 		return shutdown, err
 	}
 
-	// // Set up trace provider.
-	// tracerProvider, err := newTracerProvider()
-	// if err != nil {
-	// 	handleErr(err)
-	// 	return shutdown, err
-	// }
-	// shutdownFuncs = append(shutdownFuncs, tracerProvider.Shutdown)
-	// otel.SetTracerProvider(tracerProvider)
+	// Set up trace provider.
+	tracerProvider, err := newTracerProvider(ctx, res)
+	if err != nil {
+		handleErr(err)
+		return shutdown, err
+	}
+	shutdownFuncs = append(shutdownFuncs, tracerProvider.Shutdown)
+	otel.SetTracerProvider(tracerProvider)
 
 	// Set up meter provider.
 	meterProvider, err := newMeterProvider(ctx, res)
@@ -107,8 +111,9 @@ func newPropagator() propagation.TextMapPropagator {
 	)
 }
 
-func newTracerProvider() (*trace.TracerProvider, error) {
-	traceExporter, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
+func newTracerProvider(ctx context.Context, res *resource.Resource) (*trace.TracerProvider, error) {
+	traceExporter, err := otlptracegrpc.New(ctx)
+	// traceExporter, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
 	if err != nil {
 		return nil, err
 	}
@@ -117,21 +122,13 @@ func newTracerProvider() (*trace.TracerProvider, error) {
 		trace.WithBatcher(traceExporter,
 			// Default is 5s. Set to 1s for demonstrative purposes.
 			trace.WithBatchTimeout(time.Second)),
+		trace.WithResource(res),
 	)
 	return tracerProvider, nil
 }
 
 func newMeterProvider(ctx context.Context, res *resource.Resource) (*metric.MeterProvider, error) {
-	// metricExporter, err := stdoutmetric.New(stdoutmetric.WithPrettyPrint())
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	metricExporter, err := otlpmetricgrpc.New(
-		ctx,
-		otlpmetricgrpc.WithInsecure(),
-		otlpmetricgrpc.WithEndpoint("otel-collector:4317"),
-	)
+	metricExporter, err := otlpmetricgrpc.New(ctx)
 	if err != nil {
 		return nil, err
 	}

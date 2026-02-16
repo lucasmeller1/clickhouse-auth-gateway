@@ -20,6 +20,7 @@ const name = "github.com/lucasmeller1/excel_api/internal/middleware"
 
 var (
 	meter              = otel.Meter(name)
+	tracer             = otel.Tracer(name)
 	authDuration       metric.Float64Histogram
 	numberUserRequests metric.Int64Counter
 )
@@ -33,7 +34,7 @@ func init() {
 		metric.WithUnit("s"),
 	)
 	if err != nil {
-		fmt.Printf("failed to create metric: %v\n", err)
+		log.Printf("failed to create metric: %v\n", err)
 	}
 
 	numberUserRequests, err = meter.Int64Counter(
@@ -41,7 +42,7 @@ func init() {
 		metric.WithDescription("Number of requests per user."),
 	)
 	if err != nil {
-		fmt.Printf("failed to create metric: %v\n", err)
+		log.Printf("failed to create metric: %v\n", err)
 	}
 }
 
@@ -49,6 +50,10 @@ func AuthMiddleware(cfg config.AuthConfig, redisClient *redis.RedisClient) func(
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
+			ctx := r.Context()
+
+			ctx, span := tracer.Start(ctx, "Middleware.Public.Auth")
+			defer span.End()
 
 			bearerToken, err := auth.GetBearerToken(r.Header)
 			if err != nil {
@@ -58,28 +63,31 @@ func AuthMiddleware(cfg config.AuthConfig, redisClient *redis.RedisClient) func(
 				return
 			}
 
-			claims, err := auth.ValidateEntraJWT(r.Context(), bearerToken, cfg, redisClient)
+			claims, err := auth.ValidateEntraJWT(ctx, bearerToken, cfg, redisClient)
 
-			authDuration.Record(r.Context(), time.Since(start).Seconds())
+			authDuration.Record(ctx, time.Since(start).Seconds())
 
 			if err != nil {
+				span.RecordError(err)
 				handlers.JsonError(w, http.StatusUnauthorized, err.Error())
 				return
 			}
 
 			numberUserRequests.Add(
-				r.Context(),
+				ctx,
 				1,
 				metric.WithAttributes(
 					attribute.String("oid", claims.OID),
 				),
 			)
 
+			span.SetAttributes(attribute.String("oid", claims.OID))
+
 			if cfg.Debug == "1" {
 				log.Println(bearerToken)
 			}
 
-			ctx := context.WithValue(r.Context(), auth.ClaimsContextKey, claims)
+			ctx = context.WithValue(ctx, auth.ClaimsContextKey, claims)
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
@@ -89,6 +97,10 @@ func AuthMiddleware(cfg config.AuthConfig, redisClient *redis.RedisClient) func(
 func PrivateMiddleware(cfg config.PrivateServerConfig) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
+			ctx, span := tracer.Start(ctx, "Middleware.Private.Auth")
+			defer span.End()
+
 			bearerToken, err := auth.GetBearerToken(r.Header)
 			if err != nil {
 				w.WriteHeader(http.StatusUnauthorized)
@@ -100,7 +112,7 @@ func PrivateMiddleware(cfg config.PrivateServerConfig) func(http.Handler) http.H
 				return
 			}
 
-			next.ServeHTTP(w, r)
+			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }

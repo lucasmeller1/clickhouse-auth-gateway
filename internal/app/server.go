@@ -14,6 +14,7 @@ import (
 	"github.com/lucasmeller1/excel_api/internal/config"
 	"github.com/lucasmeller1/excel_api/internal/redis"
 	"github.com/lucasmeller1/excel_api/internal/telemetry"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 type customServer struct {
@@ -31,7 +32,7 @@ func NewServer(cfg *config.Config, ch *clickhouse.HTTPClickhouseClient, redis *r
 		// main server - API Gateway Clickhouse
 		PublicServer: &http.Server{
 			Addr:              cfg.Server.Addr,
-			Handler:           publicRouter,
+			Handler:           otelhttp.NewHandler(publicRouter, "public-server"),
 			ReadTimeout:       cfg.Server.ReadTimeout,
 			ReadHeaderTimeout: cfg.Server.ReadHeaderTimeout,
 			WriteTimeout:      cfg.Server.WriteTimeout,
@@ -41,7 +42,7 @@ func NewServer(cfg *config.Config, ch *clickhouse.HTTPClickhouseClient, redis *r
 		// internal docker server to invalidate tables when updated
 		PrivateServer: &http.Server{
 			Addr:         ":8081",
-			Handler:      privateRouter,
+			Handler:      otelhttp.NewHandler(privateRouter, "private-server"),
 			ReadTimeout:  5 * time.Second,
 			WriteTimeout: 5 * time.Second,
 		},
