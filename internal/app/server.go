@@ -13,6 +13,7 @@ import (
 	"github.com/lucasmeller1/excel_api/internal/clickhouse"
 	"github.com/lucasmeller1/excel_api/internal/config"
 	"github.com/lucasmeller1/excel_api/internal/redis"
+	"github.com/lucasmeller1/excel_api/internal/telemetry"
 )
 
 type customServer struct {
@@ -60,6 +61,12 @@ func (svr *customServer) Run() {
 	)
 	defer stop()
 
+	otelShutdown, err := telemetry.SetupOTelSDK(ctx)
+	if err != nil {
+		log.Printf("failed to start Otel: %v", err)
+		stop()
+	}
+
 	var wg sync.WaitGroup
 
 	// --- Start Public Server ---
@@ -104,6 +111,10 @@ func (svr *customServer) Run() {
 
 	if err := svr.redisClient.Close(); err != nil {
 		log.Printf("error closing redis: %v", err)
+	}
+
+	if err := otelShutdown(shutdownCtx); err != nil {
+		log.Printf("error shutting down OTel: %v", err)
 	}
 
 	wg.Wait()

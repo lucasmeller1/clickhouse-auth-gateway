@@ -7,12 +7,37 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	// "time"
+
+	// "log"
 	"strings"
 
 	"net/http"
 
 	"github.com/lucasmeller1/excel_api/internal/handlers"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 )
+
+const name = "github.com/lucasmeller1/excel_api/internal/clickhouse"
+
+var (
+	meter           = otel.Meter(name)
+	apiRequestCount metric.Int64Counter
+)
+
+func init() {
+	var err error
+
+	apiRequestCount, err = meter.Int64Counter(
+		"api.request.count",
+		metric.WithDescription("Total requests handled by the export API."),
+	)
+	if err != nil {
+		fmt.Printf("failed to create metric: %v\n", err)
+	}
+}
 
 func (c *HTTPClickhouseClient) QueryCSV(ctx context.Context, sql string) (*http.Response, error) {
 	query := sql + " FORMAT CSVWithNames"
@@ -63,21 +88,29 @@ func (c *HTTPClickhouseClient) QueryCSV(ctx context.Context, sql string) (*http.
 }
 
 func (c *HTTPClickhouseClient) ExportCSV(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	isCacheMiss := false
+
 	statusCode, err := ValidateDatabase(r, c.publicSchemas)
 	if err != nil {
 		handlers.JsonError(w, statusCode, err.Error())
 		return
 	}
 
-	ctx := r.Context()
 	dbName := strings.TrimSpace(r.URL.Query().Get("database"))
 	tableName := strings.TrimSpace(r.URL.Query().Get("table"))
+
+	baseAttrs := []attribute.KeyValue{
+		attribute.String("db", dbName),
+		attribute.String("table", tableName),
+	}
 
 	cacheKey := fmt.Sprintf("csv:%s:%s", dbName, tableName)
 
 	ttl := c.TTLTablesInRedis
 
 	gzipData, err := c.redis.GetWithSingleflight(ctx, cacheKey, ttl, func() ([]byte, error) {
+		isCacheMiss = true
 		sql := fmt.Sprintf("SELECT * FROM %s.%s", quoteIdentifier(dbName), quoteIdentifier(tableName))
 
 		resp, err := c.QueryCSV(ctx, sql)
@@ -95,18 +128,42 @@ func (c *HTTPClickhouseClient) ExportCSV(w http.ResponseWriter, r *http.Request)
 	})
 
 	if err != nil {
+		errorAttrs := append(baseAttrs, attribute.String("status", "error"))
+		apiRequestCount.Add(ctx, 1, metric.WithAttributes(errorAttrs...))
+
 		handlers.JsonError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	c.serveGzip(w, r, gzipData)
+	cacheStatus := "hit"
+	if isCacheMiss {
+		cacheStatus = "miss"
+	}
+
+	finalBaseAttrs := append(baseAttrs, attribute.String("cache_status", cacheStatus))
+
+	c.serveGzip(w, r, gzipData, finalBaseAttrs)
 }
 
-func (c *HTTPClickhouseClient) serveGzip(w http.ResponseWriter, r *http.Request, data []byte) {
+func (c *HTTPClickhouseClient) serveGzip(w http.ResponseWriter, r *http.Request, data []byte, attrs []attribute.KeyValue) {
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
 	w.Header().Set("Content-Disposition", `attachment; filename="data.csv"`)
 
 	clientAcceptsGzip := strings.Contains(r.Header.Get("Accept-Encoding"), "gzip")
+
+	ctx := r.Context()
+
+	encoding := "plainCSV"
+	if clientAcceptsGzip {
+		encoding = "gzip"
+	}
+
+	finalAttrs := append(attrs,
+		attribute.String("encoding", encoding),
+		attribute.String("status", "success"),
+	)
+
+	apiRequestCount.Add(ctx, 1, metric.WithAttributes(finalAttrs...))
 
 	if clientAcceptsGzip {
 		w.Header().Set("Content-Encoding", "gzip")
