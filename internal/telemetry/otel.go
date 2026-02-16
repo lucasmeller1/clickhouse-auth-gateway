@@ -8,6 +8,8 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/stdout/stdoutlog"
+	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
+
 	// "go.opentelemetry.io/otel/exporters/stdout/stdoutmetric"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 
@@ -15,8 +17,25 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/log"
 	"go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
 )
+
+func newResource(ctx context.Context) (*resource.Resource, error) {
+	return resource.New(
+		ctx,
+		resource.WithFromEnv(),
+		resource.WithProcess(),
+		resource.WithOS(),
+		resource.WithContainer(),
+		resource.WithHost(),
+		// resource.WithSchemaURL(semconv.SchemaURL),
+		resource.WithAttributes(
+			semconv.ServiceNameKey.String("excel-api"),
+			semconv.ServiceVersionKey.String("1.0.0"),
+		),
+	)
+}
 
 // setupOTelSDK bootstraps the OpenTelemetry pipeline.
 // If it does not return an error, make sure to call shutdown for proper cleanup.
@@ -45,6 +64,12 @@ func SetupOTelSDK(ctx context.Context) (func(context.Context) error, error) {
 	prop := newPropagator()
 	otel.SetTextMapPropagator(prop)
 
+	res, err := newResource(ctx)
+	if err != nil {
+		handleErr(err)
+		return shutdown, err
+	}
+
 	// // Set up trace provider.
 	// tracerProvider, err := newTracerProvider()
 	// if err != nil {
@@ -55,7 +80,7 @@ func SetupOTelSDK(ctx context.Context) (func(context.Context) error, error) {
 	// otel.SetTracerProvider(tracerProvider)
 
 	// Set up meter provider.
-	meterProvider, err := newMeterProvider(ctx)
+	meterProvider, err := newMeterProvider(ctx, res)
 	if err != nil {
 		handleErr(err)
 		return shutdown, err
@@ -96,7 +121,7 @@ func newTracerProvider() (*trace.TracerProvider, error) {
 	return tracerProvider, nil
 }
 
-func newMeterProvider(ctx context.Context) (*metric.MeterProvider, error) {
+func newMeterProvider(ctx context.Context, res *resource.Resource) (*metric.MeterProvider, error) {
 	// metricExporter, err := stdoutmetric.New(stdoutmetric.WithPrettyPrint())
 	// if err != nil {
 	// 	return nil, err
@@ -104,8 +129,8 @@ func newMeterProvider(ctx context.Context) (*metric.MeterProvider, error) {
 
 	metricExporter, err := otlpmetricgrpc.New(
 		ctx,
-		otlpmetricgrpc.WithEndpoint("otel-collector:4317"),
 		otlpmetricgrpc.WithInsecure(),
+		otlpmetricgrpc.WithEndpoint("otel-collector:4317"),
 	)
 	if err != nil {
 		return nil, err
@@ -115,6 +140,7 @@ func newMeterProvider(ctx context.Context) (*metric.MeterProvider, error) {
 		metric.WithReader(metric.NewPeriodicReader(metricExporter,
 			// Default is 1m. Set to 3s for demonstrative purposes.
 			metric.WithInterval(3*time.Second))),
+		metric.WithResource(res),
 	)
 	return meterProvider, nil
 }

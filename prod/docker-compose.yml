@@ -23,9 +23,13 @@ services:
       REDIS_DB: ${REDIS_DB}
 
       INVALIDATE_CACHE_TOKEN: ${INVALIDATE_CACHE_TOKEN}
+
+      # OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      # OTEL_EXPORTER_OTLP_INSECURE: "true"
     depends_on:
       - clickhousedb
       - redis
+      - otel-collector
     restart: unless-stopped
     networks:
       - test_network
@@ -88,6 +92,45 @@ services:
     #  - ./volumes/redis_data:/data
     restart: unless-stopped
 
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: otel-collector
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    # ports:
+    #   - "4317:4317"
+    #   - "4318:4318"
+    #   - "9464:9464"   # Prometheus metrics endpoint
+    networks:
+      - test_network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - test_network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    # volumes:
+    #   - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - test_network
 
 networks:
   test_network:
