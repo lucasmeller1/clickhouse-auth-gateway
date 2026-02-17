@@ -59,8 +59,8 @@ func (c *HTTPClickhouseClient) QueryCSV(ctx context.Context, sql string) (*http.
 	defer func() {
 		span.SetAttributes(
 			attribute.Float64(
-				"db.duration_us",
-				float64(time.Since(start).Microseconds()),
+				"db.duration_ms",
+				float64(time.Since(start).Milliseconds()),
 			),
 		)
 	}()
@@ -238,8 +238,8 @@ func (c *HTTPClickhouseClient) serveGzip(ctx context.Context, w http.ResponseWri
 	defer func() {
 		span.SetAttributes(
 			attribute.Float64(
-				"stream.duration_us",
-				float64(time.Since(start).Microseconds()),
+				"stream.duration_ms",
+				float64(time.Since(start).Milliseconds()),
 			),
 		)
 	}()
