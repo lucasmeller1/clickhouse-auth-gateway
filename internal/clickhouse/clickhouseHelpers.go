@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/lucasmeller1/excel_api/internal/config"
+	"github.com/lucasmeller1/excel_api/internal/queue"
 	"github.com/lucasmeller1/excel_api/internal/redis"
 
 	"errors"
@@ -23,6 +24,7 @@ type HTTPClickhouseClient struct {
 	publicSchemas    []string
 	redis            *redis.RedisClient
 	TTLTablesInRedis time.Duration
+	exportLimiter    *limiter.ExportLimiter
 }
 
 func NewHTTPClickhouse(cfg config.ClickhouseConfig, redisClient *redis.RedisClient) *HTTPClickhouseClient {
@@ -44,6 +46,7 @@ func NewHTTPClickhouse(cfg config.ClickhouseConfig, redisClient *redis.RedisClie
 		publicSchemas:    cfg.PublicSchemas,
 		redis:            redisClient,
 		TTLTablesInRedis: cfg.TTLTablesInRedis,
+		exportLimiter:    limiter.NewExportLimiter(12),
 	}
 }
 

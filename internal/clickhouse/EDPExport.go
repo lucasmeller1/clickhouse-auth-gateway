@@ -28,6 +28,7 @@ var (
 	tracer           = otel.Tracer(name)
 	apiRequestCount  metric.Int64Counter
 	deliveryDuration metric.Float64Histogram
+	activeExports    metric.Int64Gauge
 )
 
 func init() {
@@ -48,6 +49,14 @@ func init() {
 	)
 	if err != nil {
 		fmt.Printf("failed to create histogram: %v\n", err)
+	}
+
+	activeExports, err = meter.Int64Gauge(
+		"active.export",
+		metric.WithDescription("Number of active exports."),
+	)
+	if err != nil {
+		fmt.Printf("failed to create metric active.export: %v\n", err)
 	}
 }
 
@@ -135,6 +144,11 @@ func (c *HTTPClickhouseClient) QueryCSV(ctx context.Context, sql string) (*http.
 }
 
 func (c *HTTPClickhouseClient) ExportCSV(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	ctx, span := tracer.Start(ctx, "ClickHouse.ExportEndpoint", trace.WithSpanKind(trace.SpanKindInternal))
+	defer span.End()
+
 	startTime := time.Now()
 	status := "success"
 	httpStatus := http.StatusOK
@@ -142,13 +156,19 @@ func (c *HTTPClickhouseClient) ExportCSV(w http.ResponseWriter, r *http.Request)
 	dbName := ""
 	tableName := ""
 
-	ctx := r.Context()
 	isCacheMiss := false
 
-	ctx, span := tracer.Start(ctx, "ClickHouse.ExportEndpoint", trace.WithSpanKind(trace.SpanKindInternal))
-	defer span.End()
+	if err := c.exportLimiter.Acquire(ctx); err != nil {
+		http.Error(w, "request cancelled", http.StatusRequestTimeout)
+		return
+	}
+	activeExports.Record(ctx, int64(c.exportLimiter.Active()))
 
 	defer func() {
+		c.exportLimiter.Release()
+
+		activeExports.Record(ctx, int64(c.exportLimiter.Active()))
+
 		duration := time.Since(startTime).Seconds()
 
 		attrs := []attribute.KeyValue{
