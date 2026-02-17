@@ -42,8 +42,8 @@ func init() {
 	}
 
 	deliveryDuration, err = meter.Float64Histogram(
-		"table.delivery.duration",
-		metric.WithDescription("Time taken to deliver the table to the user."),
+		"table.export.processing.duration",
+		metric.WithDescription("Time taken to export table."),
 		metric.WithUnit("s"),
 	)
 	if err != nil {
@@ -139,20 +139,14 @@ func (c *HTTPClickhouseClient) ExportCSV(w http.ResponseWriter, r *http.Request)
 	status := "success"
 	httpStatus := http.StatusOK
 	cacheStatus := "unknown"
+	dbName := ""
+	tableName := ""
 
 	ctx := r.Context()
 	isCacheMiss := false
 
 	ctx, span := tracer.Start(ctx, "ClickHouse.ExportEndpoint", trace.WithSpanKind(trace.SpanKindInternal))
 	defer span.End()
-
-	dbName := strings.TrimSpace(r.URL.Query().Get("database"))
-	tableName := strings.TrimSpace(r.URL.Query().Get("table"))
-
-	span.SetAttributes(
-		attribute.String("db.name", dbName),
-		attribute.String("db.table", tableName),
-	)
 
 	defer func() {
 		duration := time.Since(startTime).Seconds()
@@ -183,6 +177,14 @@ func (c *HTTPClickhouseClient) ExportCSV(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	dbName = strings.TrimSpace(r.URL.Query().Get("database"))
+	tableName = strings.TrimSpace(r.URL.Query().Get("table"))
+
+	span.SetAttributes(
+		attribute.String("db.name", dbName),
+		attribute.String("db.table", tableName),
+	)
+
 	cacheKey := fmt.Sprintf("csv:%s:%s", dbName, tableName)
 
 	ttl := c.TTLTablesInRedis
@@ -211,6 +213,8 @@ func (c *HTTPClickhouseClient) ExportCSV(w http.ResponseWriter, r *http.Request)
 	})
 
 	if err != nil {
+		handlers.RecordSpanError(span, err)
+
 		status = "error"
 		httpStatus = http.StatusInternalServerError
 		handlers.JsonError(w, httpStatus, err.Error())

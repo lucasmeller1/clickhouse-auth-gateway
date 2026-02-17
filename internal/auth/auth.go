@@ -121,8 +121,6 @@ func ValidateEntraJWT(ctx context.Context, jwtToken string, cfg config.AuthConfi
 			jwt.WithIssuedAt(),
 			jwt.WithLeeway(2*time.Minute),
 			jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Alg()}),
-
-			jwt.WithoutClaimsValidation(),
 		)
 
 		return parser.ParseWithClaims(

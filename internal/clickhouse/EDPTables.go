@@ -101,7 +101,6 @@ func (c *HTTPClickhouseClient) GetUserTables(w http.ResponseWriter, r *http.Requ
 		modifiedURL,
 		inClause,
 	)
-	// log.Println(fmt.Sprintf("http://%s%s", r.Host, r.URL.RequestURI()))
 
 	resp, err := c.QueryCSV(ctx, sql)
 	if err != nil {

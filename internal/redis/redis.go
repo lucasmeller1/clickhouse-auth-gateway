@@ -63,7 +63,7 @@ func (r *RedisClient) GetWithSingleflight(ctx context.Context, key string, ttl t
 
 	v, err, shared := r.group.Do(key, func() (any, error) {
 		detachedCtx := context.WithoutCancel(ctx)
-		sfCtx, cancel := context.WithTimeout(detachedCtx, time.Minute*2)
+		sfCtx, cancel := context.WithTimeout(detachedCtx, time.Minute)
 		defer cancel()
 
 		sfCtx, sfSpan := tracer.Start(sfCtx, "Redis.Singleflight.Fetch", trace.WithSpanKind(trace.SpanKindInternal))
@@ -80,7 +80,10 @@ func (r *RedisClient) GetWithSingleflight(ctx context.Context, key string, ttl t
 			return nil, fetchErr
 		}
 
-		_ = r.SetCachedResponse(sfCtx, key, data, ttl)
+		err = r.SetCachedResponse(sfCtx, key, data, ttl)
+		if err != nil {
+			handlers.RecordSpanError(sfSpan, fmt.Errorf("failed to SET redis key: %v", key))
+		}
 
 		return data, nil
 	})
