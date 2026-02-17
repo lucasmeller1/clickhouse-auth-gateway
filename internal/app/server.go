@@ -32,7 +32,7 @@ func NewServer(cfg *config.Config, ch *clickhouse.HTTPClickhouseClient, redis *r
 		// main server - API Gateway Clickhouse
 		PublicServer: &http.Server{
 			Addr:              cfg.Server.Addr,
-			Handler:           otelhttp.NewHandler(publicRouter, "public-server"),
+			Handler:           otelhttp.NewHandler(publicRouter, "Public Server"),
 			ReadTimeout:       cfg.Server.ReadTimeout,
 			ReadHeaderTimeout: cfg.Server.ReadHeaderTimeout,
 			WriteTimeout:      cfg.Server.WriteTimeout,
@@ -42,7 +42,7 @@ func NewServer(cfg *config.Config, ch *clickhouse.HTTPClickhouseClient, redis *r
 		// internal docker server to invalidate tables when updated
 		PrivateServer: &http.Server{
 			Addr:         ":8081",
-			Handler:      otelhttp.NewHandler(privateRouter, "private-server"),
+			Handler:      otelhttp.NewHandler(privateRouter, "Private Server"),
 			ReadTimeout:  5 * time.Second,
 			WriteTimeout: 5 * time.Second,
 		},

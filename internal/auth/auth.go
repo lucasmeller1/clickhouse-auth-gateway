@@ -30,7 +30,7 @@ func GetCachedTIDKeys(ctx context.Context, cfgAuth *config.AuthConfig, redisClie
 		return data, nil
 	}
 
-	return redisClient.GetWithSingleflight(ctx, cacheKey, time.Hour, func() ([]byte, error) {
+	return redisClient.GetWithSingleflight(ctx, cacheKey, time.Hour, func(sfCtx context.Context) ([]byte, error) {
 		return FetchEntraJWKS(ctx, cfgAuth)
 	})
 }

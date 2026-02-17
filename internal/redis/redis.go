@@ -8,11 +8,19 @@ import (
 	"strings"
 
 	"github.com/lucasmeller1/excel_api/internal/config"
+	"github.com/lucasmeller1/excel_api/internal/handlers"
 	"github.com/redis/go-redis/v9"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/singleflight"
 
 	"time"
 )
+
+const name = "github.com/lucasmeller1/excel_api/internal/redis"
+
+var tracer = otel.Tracer(name)
 
 type RedisClient struct {
 	Client *redis.Client
@@ -42,24 +50,38 @@ func NewRedis(cfg config.RedisConfig) *RedisClient {
 	}
 }
 
-func (r *RedisClient) GetWithSingleflight(ctx context.Context, key string, ttl time.Duration, getDataFunc func() ([]byte, error)) ([]byte, error) {
+func (r *RedisClient) GetWithSingleflight(ctx context.Context, key string, ttl time.Duration, getDataFunc func(ctx context.Context) ([]byte, error)) ([]byte, error) {
+	ctx, span := tracer.Start(ctx, "Redis.GetWithSingleflight", trace.WithSpanKind(trace.SpanKindInternal))
+	defer span.End()
+	span.SetAttributes(attribute.String("cache.key", key))
+
 	val, err := r.GetCachedResponse(ctx, key)
 	if err == nil && val != nil {
+		span.SetAttributes(attribute.Bool("cache.hit", true))
 		return val, nil
 	}
 
-	v, err, _ := r.group.Do(key, func() (any, error) {
-		val, err := r.GetCachedResponse(ctx, key)
+	v, err, shared := r.group.Do(key, func() (any, error) {
+		detachedCtx := context.WithoutCancel(ctx)
+		sfCtx, cancel := context.WithTimeout(detachedCtx, time.Minute*2)
+		defer cancel()
+
+		sfCtx, sfSpan := tracer.Start(sfCtx, "Redis.Singleflight.Fetch", trace.WithSpanKind(trace.SpanKindInternal))
+		defer sfSpan.End()
+
+		val, err := r.GetCachedResponse(sfCtx, key)
 		if err == nil && val != nil {
 			return val, nil
 		}
 
-		data, fetchErr := getDataFunc()
+		data, fetchErr := getDataFunc(sfCtx)
 		if fetchErr != nil {
+			sfSpan.RecordError(fetchErr)
 			return nil, fetchErr
 		}
 
-		_ = r.SetCachedResponse(ctx, key, data, ttl)
+		_ = r.SetCachedResponse(sfCtx, key, data, ttl)
+
 		return data, nil
 	})
 
@@ -67,26 +89,74 @@ func (r *RedisClient) GetWithSingleflight(ctx context.Context, key string, ttl t
 		return nil, err
 	}
 
+	span.SetAttributes(attribute.Bool("singleflight.shared", shared))
+
 	return v.([]byte), nil
 }
 
 func (r *RedisClient) GetCachedResponse(ctx context.Context, key string) ([]byte, error) {
+	ctx, span := tracer.Start(ctx, "Redis.GET", trace.WithSpanKind(trace.SpanKindClient))
+	defer span.End()
+
 	fullKey := r.prefix + key
+
+	span.SetAttributes(
+		attribute.String("redis.key", fullKey),
+		attribute.String("redis.operation", "GET"),
+	)
+
 	val, err := r.Client.Get(ctx, fullKey).Bytes()
 	if err == redis.Nil {
+		span.SetAttributes(attribute.Bool("cache.hit", false))
 		return nil, nil
 	}
+
+	if err != nil {
+		span.RecordError(err)
+		return nil, err
+	}
+
+	span.SetAttributes(attribute.Bool("cache.hit", true))
 	return val, err
 }
 
 func (r *RedisClient) SetCachedResponse(ctx context.Context, key string, data []byte, ttl time.Duration) error {
+	ctx, span := tracer.Start(ctx, "Redis.SET", trace.WithSpanKind(trace.SpanKindClient))
+	defer span.End()
+
 	fullKey := r.prefix + key
-	return r.Client.Set(ctx, fullKey, data, ttl).Err()
+
+	span.SetAttributes(
+		attribute.String("redis.key", fullKey),
+		attribute.String("redis.operation", "SET"),
+		attribute.Float64("redis.value_size", handlers.BytesToMiB(len(data))),
+		attribute.Int64("redis.ttl_seconds", int64(ttl.Seconds())),
+	)
+
+	err := r.Client.Set(ctx, fullKey, data, ttl).Err()
+	if err != nil {
+		span.RecordError(err)
+	}
+
+	return err
 }
 
 func (r *RedisClient) InvalidateCache(ctx context.Context, key string) error {
+	ctx, span := tracer.Start(ctx, "Redis.DEL", trace.WithSpanKind(trace.SpanKindClient))
+	defer span.End()
+
 	fullKey := r.prefix + key
-	return r.Client.Del(ctx, fullKey).Err()
+
+	span.SetAttributes(
+		attribute.String("redis.key", fullKey),
+	)
+
+	err := r.Client.Del(ctx, fullKey).Err()
+	if err != nil {
+		span.RecordError(err)
+	}
+
+	return err
 }
 
 func (r *RedisClient) Close() error {

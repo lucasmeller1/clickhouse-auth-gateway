@@ -98,8 +98,8 @@ services:
     command: ["--config=/etc/otel-collector-config.yaml"]
     volumes:
       - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
-    depends_on:
-      - tempo
+    # depends_on:
+      # - tempo
     # ports:
     #   - "4317:4317"
     #   - "4318:4318"
@@ -117,17 +117,17 @@ services:
     networks:
       - test_network
 
-  tempo:
-    image: grafana/tempo:latest
-    container_name: tempo
-    command: [ "-config.file=/etc/tempo.yaml" ]
-    volumes:
-      - ./tempo.yaml:/etc/tempo.yaml
-      # - ./volumes/tempo_data:/var/lib/tempo # Uncomment for persistence
-    ports:
-      - "3200:3200"
-    networks:
-      - test_network
+  # tempo:
+  #   image: grafana/tempo:latest
+  #   container_name: tempo
+  #   command: [ "-config.file=/etc/tempo.yaml" ]
+  #   volumes:
+  #     - ./tempo.yaml:/etc/tempo.yaml
+  #     # - ./volumes/tempo_data:/var/lib/tempo # Uncomment for persistence
+  #   ports:
+  #     - "3200:3200"
+  #   networks:
+  #     - test_network
 
   jaeger:
     image: jaegertracing/all-in-one:1.57
@@ -151,7 +151,7 @@ services:
     #   - grafana_data:/var/lib/grafana
     depends_on:
       - prometheus
-      - tempo
+      # - tempo
     networks:
       - test_network
 
