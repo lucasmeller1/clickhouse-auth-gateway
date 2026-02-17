@@ -6,11 +6,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lucasmeller1/excel_api/internal/config"
 	"github.com/lucasmeller1/excel_api/internal/handlers"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	"strings"
 )
@@ -173,12 +176,36 @@ func rsaPublicKeyFromEntraJWK(key EntraIDKey) (*rsa.PublicKey, error) {
 }
 
 func FetchEntraJWKS(ctx context.Context, cfgAuth *config.AuthConfig) ([]byte, error) {
-	url := fmt.Sprintf("https://login.microsoftonline.com/%s/discovery/v2.0/keys", cfgAuth.TenantID)
+	ctx, span := tracer.Start(ctx, "Auth.FetchEntraJWKS", trace.WithSpanKind(trace.SpanKindClient))
+	defer span.End()
+
+	start := time.Now()
+	defer func() {
+		span.SetAttributes(
+			attribute.Float64("http.duration_ms", float64(time.Since(start).Milliseconds())),
+		)
+	}()
+
+	url := fmt.Sprintf(
+		"https://login.microsoftonline.com/%s/discovery/v2.0/keys",
+		cfgAuth.TenantID,
+	)
+
+	span.SetAttributes(
+		attribute.String("tenant.id", cfgAuth.TenantID),
+		attribute.String("http.method", "GET"),
+		attribute.String("http.url", url),
+	)
 
 	dataBytes, err := handlers.GetRequest(ctx, url)
 	if err != nil {
+		span.RecordError(err)
 		return nil, err
 	}
+
+	span.SetAttributes(
+		attribute.Int("http.response_size_bytes", len(dataBytes)),
+	)
 
 	return dataBytes, nil
 }

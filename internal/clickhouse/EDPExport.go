@@ -65,6 +65,10 @@ func (c *HTTPClickhouseClient) QueryCSV(ctx context.Context, sql string) (*http.
 		)
 	}()
 
+	span.SetAttributes(
+		attribute.String("sql_query", sql),
+	)
+
 	query := fmt.Sprintf(
 		"%s FORMAT CSVWithNames SETTINGS max_result_bytes=%d, result_overflow_mode='break'",
 		sql, maxExportSize,
