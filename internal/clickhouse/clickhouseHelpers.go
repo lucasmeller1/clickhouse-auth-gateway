@@ -26,6 +26,7 @@ type HTTPClickhouseClient struct {
 }
 
 func NewHTTPClickhouse(cfg config.ClickhouseConfig, redisClient *redis.RedisClient) *HTTPClickhouseClient {
+	// used for HTTP requests to Clickhouse
 	t := http.DefaultTransport.(*http.Transport).Clone()
 	t.DisableCompression = true
 	t.MaxIdleConns = cfg.TransportConfig.MaxIdleConns

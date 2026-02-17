@@ -141,7 +141,7 @@ func (r *RedisClient) SetCachedResponse(ctx context.Context, key string, data []
 	return err
 }
 
-func (r *RedisClient) InvalidateCache(ctx context.Context, key string) error {
+func (r *RedisClient) InvalidateCache(ctx context.Context, key string) (int64, error) {
 	ctx, span := tracer.Start(ctx, "Redis.DEL", trace.WithSpanKind(trace.SpanKindClient))
 	defer span.End()
 
@@ -151,12 +151,14 @@ func (r *RedisClient) InvalidateCache(ctx context.Context, key string) error {
 		attribute.String("redis.key", fullKey),
 	)
 
-	err := r.Client.Del(ctx, fullKey).Err()
+	deleted, err := r.Client.Del(ctx, fullKey).Result()
 	if err != nil {
 		span.RecordError(err)
+		return 0, err
 	}
 
-	return err
+	span.SetAttributes(attribute.Int64("redis.deleted_count", deleted))
+	return deleted, nil
 }
 
 func (r *RedisClient) Close() error {
@@ -166,20 +168,41 @@ func (r *RedisClient) Close() error {
 // not idiomatic, change later
 func (redis *RedisClient) InvalidateCacheEndpoint(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+
+	ctx, span := tracer.Start(ctx, "Redis.InvalidateCacheEndpoint", trace.WithSpanKind(trace.SpanKindServer))
+	defer span.End()
+
+	successfulInvalidation := false
+
+	defer func() {
+		span.SetAttributes(
+			attribute.Bool("redis.invalidate.success", successfulInvalidation),
+		)
+	}()
+
 	dbName := strings.TrimSpace(r.URL.Query().Get("database"))
 	tableName := strings.TrimSpace(r.URL.Query().Get("table"))
 
 	if dbName == "" || tableName == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("missing database or table parameter"))
+		http.Error(w, "missing database or table parameter", http.StatusBadRequest)
 		return
 	}
+
+	span.SetAttributes(
+		attribute.String("redis.dbName", dbName),
+		attribute.String("redis.tableName", tableName),
+	)
 
 	cacheKey := fmt.Sprintf("csv:%s:%s", dbName, tableName)
 
-	if redis.InvalidateCache(ctx, cacheKey) != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+	deleted, err := redis.InvalidateCache(ctx, cacheKey)
+	if err != nil {
+		handlers.RecordSpanError(span, fmt.Errorf("failed to invalidate cached table: %w", err))
+		http.Error(w, "failed to invalidate cache", http.StatusInternalServerError)
 		return
 	}
+
+	span.SetAttributes(attribute.Int64("redis.deleted_count", deleted))
+	successfulInvalidation = true
 	w.WriteHeader(http.StatusOK)
 }

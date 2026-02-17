@@ -22,15 +22,6 @@ func getPublicRoutes(cfg *config.Config, ch *clickhouse.HTTPClickhouseClient, re
 	r.Use(chimw.RealIP)
 	r.Use(chimw.Logger)
 
-	// r.Use(httprate.Limit(
-	// 	cfg.Server.MaxRequests,
-	// 	cfg.Server.MaxRequestsInterval,
-	// 	httprate.WithKeyByIP(),
-	// 	httprateredis.WithRedisLimitCounter(&httprateredis.Config{
-	// 		Host: cfg.Redis.Hostname, Port: uint16(cfg.Redis.Port),
-	// 	}),
-	// ))
-
 	// unauthenticated
 	r.Group(func(r chi.Router) {
 		r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -42,6 +33,7 @@ func getPublicRoutes(cfg *config.Config, ch *clickhouse.HTTPClickhouseClient, re
 	r.Group(func(r chi.Router) {
 		r.Use(apimw.AuthMiddleware(cfg.Auth, redisClient))
 
+		// requests rate limiting by OID, if not present by IP (needs to be prevented by checking JWT)
 		r.Use(httprate.Limit(
 			cfg.Server.MaxRequests,
 			cfg.Server.MaxRequestsInterval,

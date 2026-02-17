@@ -50,6 +50,7 @@ func Load() *Config {
 
 	config := Config{
 
+		// related to EntraID Auth
 		Auth: AuthConfig{
 			TenantID: tid,
 			Issuer:   issuer,
@@ -57,6 +58,7 @@ func Load() *Config {
 			Debug:    debug,
 		},
 
+		// related to golang public server
 		Server: ServerConfig{
 			Addr:                addrPort,
 			ReadTimeout:         10 * time.Second,
@@ -64,11 +66,14 @@ func Load() *Config {
 			WriteTimeout:        60 * time.Second,
 			IdleTimeout:         120 * time.Second,
 			MaxHeaderBytes:      1 << 20,
-			ShutdownTimeout:     5 * time.Second,
 			MaxRequests:         100,
 			MaxRequestsInterval: time.Minute,
+
+			// time to close all (both server, redis connection and otel)
+			ShutdownTimeout: 5 * time.Second,
 		},
 
+		// related to clickhouse conn, http client and cache
 		Clickhouse: ClickhouseConfig{
 			User:          userClickhouse,
 			Password:      passwordClickhouse,
@@ -85,6 +90,7 @@ func Load() *Config {
 			TTLTablesInRedis: time.Minute,
 		},
 
+		// related to redis cache
 		Redis: RedisConfig{
 			Hostname: redisHostname,
 			Port:     redisPort,
@@ -92,6 +98,7 @@ func Load() *Config {
 			DB:       redisDB,
 		},
 
+		// related to golang private server
 		PrivateServer: PrivateServerConfig{
 			InvalidateCacheToken: invalidateCacheToken,
 		},

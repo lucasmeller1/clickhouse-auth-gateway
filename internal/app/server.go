@@ -43,8 +43,8 @@ func NewServer(cfg *config.Config, ch *clickhouse.HTTPClickhouseClient, redis *r
 		PrivateServer: &http.Server{
 			Addr:         ":8081",
 			Handler:      otelhttp.NewHandler(privateRouter, "Private Server"),
-			ReadTimeout:  5 * time.Second,
-			WriteTimeout: 5 * time.Second,
+			ReadTimeout:  10 * time.Second,
+			WriteTimeout: 10 * time.Second,
 		},
 
 		ShutdownTimeout: cfg.Server.ShutdownTimeout,

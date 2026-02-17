@@ -103,11 +103,13 @@ func PrivateMiddleware(cfg config.PrivateServerConfig) func(http.Handler) http.H
 
 			bearerToken, err := auth.GetBearerToken(r.Header)
 			if err != nil {
+				handlers.RecordSpanError(span, fmt.Errorf("failed to get bearerToken: %w", err))
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
 
 			if bearerToken != cfg.InvalidateCacheToken {
+				handlers.RecordSpanError(span, fmt.Errorf("invalid bearer token"))
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
