@@ -233,10 +233,14 @@ func (c *HTTPClickhouseClient) ExportCSV(w http.ResponseWriter, r *http.Request)
 	})
 
 	if err != nil {
-		handlers.RecordSpanError(span, err)
-
 		status = "error"
+		handlers.RecordSpanError(span, err)
 		httpStatus = http.StatusInternalServerError
+
+		if err.Error() == "Table does not exist" {
+			httpStatus = http.StatusBadRequest
+		}
+
 		handlers.JsonError(w, httpStatus, err.Error())
 		return
 	}
