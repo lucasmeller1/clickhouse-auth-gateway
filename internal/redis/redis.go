@@ -115,7 +115,7 @@ func (r *RedisClient) GetCachedResponse(ctx context.Context, key string) ([]byte
 	}
 
 	if err != nil {
-		span.RecordError(err)
+		handlers.RecordSpanError(span, err)
 		return nil, err
 	}
 
@@ -138,7 +138,7 @@ func (r *RedisClient) SetCachedResponse(ctx context.Context, key string, data []
 
 	err := r.Client.Set(ctx, fullKey, data, ttl).Err()
 	if err != nil {
-		span.RecordError(err)
+		handlers.RecordSpanError(span, err)
 	}
 
 	return err
@@ -156,7 +156,7 @@ func (r *RedisClient) InvalidateCache(ctx context.Context, key string) (int64, e
 
 	deleted, err := r.Client.Del(ctx, fullKey).Result()
 	if err != nil {
-		span.RecordError(err)
+		handlers.RecordSpanError(span, err)
 		return 0, err
 	}
 

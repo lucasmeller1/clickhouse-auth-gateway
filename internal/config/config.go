@@ -40,6 +40,7 @@ func Load() *Config {
 	passwordClickhouse := mustEnv("CLICKHOUSE_PASSWORD")
 	schemaClickhouse := mustEnv("CLICKHOUSE_SCHEMA")
 	hostnameClickhouse := fmt.Sprintf("http://%s:%s", mustEnv("CLICKHOUSE_HOSTNAME"), mustEnv("CLICKHOUSE_PORT"))
+	queueSizeLimiter := mustConvertStringToIntEnv("QUEUE_SIZE_LIMITER")
 
 	redisHostname := mustEnv("REDIS_HOSTNAME")
 	redisPort := mustConvertStringToIntEnv("REDIS_PORT")
@@ -88,6 +89,7 @@ func Load() *Config {
 				IdleConnTimeout:     90 * time.Second,
 			},
 			TTLTablesInRedis: time.Minute,
+			QueueSizeLimiter: queueSizeLimiter,
 		},
 
 		// related to redis cache

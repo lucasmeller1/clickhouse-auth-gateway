@@ -31,7 +31,7 @@ func getPublicRoutes(cfg *config.Config, ch *clickhouse.HTTPClickhouseClient, re
 
 	// authenticated
 	r.Group(func(r chi.Router) {
-		r.Use(apimw.AuthMiddleware(cfg.Auth, redisClient))
+		r.Use(apimw.AuthPublicMiddleware(cfg.Auth, redisClient))
 
 		// requests rate limiting by OID, if not present by IP (needs to be prevented by checking JWT)
 		r.Use(httprate.Limit(
@@ -62,7 +62,7 @@ func GetPrivateRoutes(cfg *config.Config, redis *redis.RedisClient) chi.Router {
 	r.Use(chimw.Recoverer)
 
 	r.Group(func(r chi.Router) {
-		r.Use(apimw.PrivateMiddleware(cfg.PrivateServer))
+		r.Use(apimw.AuthPrivateMiddleware(cfg.PrivateServer))
 
 		r.Post("/invalidate", redis.InvalidateCacheEndpoint)
 	})

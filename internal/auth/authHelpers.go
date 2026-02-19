@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rsa"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -143,11 +144,7 @@ func isSignatureError(err error) bool {
 		return false
 	}
 
-	msg := err.Error()
-
-	return strings.Contains(msg, "signature") ||
-		strings.Contains(msg, "verification error") ||
-		strings.Contains(msg, "crypto/rsa")
+	return errors.Is(err, jwt.ErrTokenSignatureInvalid)
 }
 
 func rsaPublicKeyFromEntraJWK(key EntraIDKey) (*rsa.PublicKey, error) {
@@ -176,6 +173,9 @@ func rsaPublicKeyFromEntraJWK(key EntraIDKey) (*rsa.PublicKey, error) {
 }
 
 func FetchEntraJWKS(ctx context.Context, cfgAuth *config.AuthConfig) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
 	ctx, span := tracer.Start(ctx, "Auth.FetchEntraJWKS", trace.WithSpanKind(trace.SpanKindClient))
 	defer span.End()
 

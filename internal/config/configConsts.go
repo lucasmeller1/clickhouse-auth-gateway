@@ -71,6 +71,8 @@ type ClickhouseConfig struct {
 	PublicSchemas    []string
 	TransportConfig  HTTPTransportClickhouse
 	TTLTablesInRedis time.Duration
+
+	QueueSizeLimiter int
 }
 
 type HTTPTransportClickhouse struct {

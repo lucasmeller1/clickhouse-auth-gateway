@@ -46,7 +46,7 @@ func NewHTTPClickhouse(cfg config.ClickhouseConfig, redisClient *redis.RedisClie
 		publicSchemas:    cfg.PublicSchemas,
 		redis:            redisClient,
 		TTLTablesInRedis: cfg.TTLTablesInRedis,
-		exportLimiter:    limiter.NewExportLimiter(12),
+		exportLimiter:    limiter.NewExportLimiter(cfg.QueueSizeLimiter),
 	}
 }
 

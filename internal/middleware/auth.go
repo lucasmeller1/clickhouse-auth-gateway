@@ -46,7 +46,7 @@ func init() {
 	}
 }
 
-func AuthMiddleware(cfg config.AuthConfig, redisClient *redis.RedisClient) func(http.Handler) http.Handler {
+func AuthPublicMiddleware(cfg config.AuthConfig, redisClient *redis.RedisClient) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
@@ -83,9 +83,9 @@ func AuthMiddleware(cfg config.AuthConfig, redisClient *redis.RedisClient) func(
 
 			span.SetAttributes(attribute.String("oid", claims.OID))
 
-			if cfg.Debug == "1" {
-				log.Println(bearerToken)
-			}
+			// if cfg.Debug == "1" {
+			// 	log.Println(bearerToken)
+			// }
 
 			ctx = context.WithValue(ctx, auth.ClaimsContextKey, claims)
 
@@ -94,7 +94,7 @@ func AuthMiddleware(cfg config.AuthConfig, redisClient *redis.RedisClient) func(
 	}
 }
 
-func PrivateMiddleware(cfg config.PrivateServerConfig) func(http.Handler) http.Handler {
+func AuthPrivateMiddleware(cfg config.PrivateServerConfig) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
