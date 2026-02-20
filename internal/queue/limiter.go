@@ -36,8 +36,3 @@ func (l *ExportLimiter) Release() {
 func (l *ExportLimiter) Active() int {
 	return len(l.slots)
 }
-
-// Capacity returns max slots
-func (l *ExportLimiter) Capacity() int {
-	return cap(l.slots)
-}

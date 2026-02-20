@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -58,89 +57,6 @@ func init() {
 	if err != nil {
 		fmt.Printf("failed to create metric active.export: %v\n", err)
 	}
-}
-
-func (c *HTTPClickhouseClient) QueryCSV(ctx context.Context, sql string) (*http.Response, error) {
-	ctx, span := tracer.Start(ctx, "ClickHouse.Query", trace.WithSpanKind(trace.SpanKindClient))
-	defer span.End()
-
-	start := time.Now()
-	defer func() {
-		span.SetAttributes(
-			attribute.Float64(
-				"db.duration_ms",
-				float64(time.Since(start).Milliseconds()),
-			),
-		)
-	}()
-
-	span.SetAttributes(
-		attribute.String("sql_query", sql),
-	)
-
-	query := fmt.Sprintf(
-		"%s FORMAT CSVWithNames SETTINGS max_result_bytes=%d, result_overflow_mode='break'",
-		sql, maxExportSize,
-	)
-
-	req, err := http.NewRequestWithContext(
-		ctx,
-		http.MethodPost,
-		c.baseURL+"?enable_http_compression=1",
-		bytes.NewBufferString(query),
-	)
-	if err != nil {
-		handlers.RecordSpanError(span, err)
-		return nil, errors.New("failed to create POST request to database")
-	}
-
-	req.SetBasicAuth(c.user, c.pass)
-	req.Header.Set("Accept-Encoding", "gzip")
-
-	resp, err := c.client.Do(req)
-	if err != nil {
-		handlers.RecordSpanError(span, err)
-		return nil, errors.New("failed to send POST request to database")
-	}
-
-	span.SetAttributes(
-		attribute.Int("http.status_code", resp.StatusCode),
-		attribute.String("net.peer.name", c.baseURL),
-	)
-
-	if resp.StatusCode != http.StatusOK {
-		defer resp.Body.Close()
-
-		var reader io.Reader = resp.Body
-
-		if resp.Header.Get("Content-Encoding") == "gzip" {
-			gzReader, err := gzip.NewReader(resp.Body)
-			if err != nil {
-				handlers.RecordSpanError(span, err)
-				return nil, fmt.Errorf("failed to unzip error response: %w", err)
-			}
-			defer gzReader.Close()
-			reader = gzReader
-		}
-
-		body, err := io.ReadAll(reader)
-		if err != nil {
-			handlers.RecordSpanError(span, err)
-			return nil, fmt.Errorf("failed to read error body: %w", err)
-		}
-
-		errorText := strings.TrimSpace(string(body))
-		cleanErr := normalizeClickhouseError(errorText)
-		err = errors.New(cleanErr)
-		handlers.RecordSpanError(span, err)
-		return nil, errors.New(cleanErr)
-	}
-
-	if resp.Header.Get("Content-Encoding") != "gzip" {
-		return nil, errors.New("unexpected non-gzip response from ClickHouse")
-	}
-
-	return resp, nil
 }
 
 func (c *HTTPClickhouseClient) ExportCSV(w http.ResponseWriter, r *http.Request) {
@@ -199,11 +115,6 @@ func (c *HTTPClickhouseClient) ExportCSV(w http.ResponseWriter, r *http.Request)
 
 	dbName = strings.TrimSpace(r.URL.Query().Get("database"))
 	tableName = strings.TrimSpace(r.URL.Query().Get("table"))
-
-	span.SetAttributes(
-		attribute.String("db.name", dbName),
-		attribute.String("db.table", tableName),
-	)
 
 	cacheKey := fmt.Sprintf("csv:%s:%s", dbName, tableName)
 

@@ -65,13 +65,20 @@ func AuthPublicMiddleware(cfg config.AuthConfig, redisClient *redis.RedisClient)
 
 			claims, err := auth.ValidateEntraJWT(ctx, bearerToken, cfg, redisClient)
 
-			authDuration.Record(ctx, time.Since(start).Seconds())
-
 			if err != nil {
 				span.RecordError(err)
-				handlers.JsonError(w, http.StatusUnauthorized, err.Error())
+				handlers.JsonError(w, http.StatusUnauthorized, "unauthorized")
 				return
 			}
+
+			if claims.OID == "" {
+				handlers.JsonError(w, http.StatusUnauthorized, "missing oid claim")
+				return
+			}
+
+			span.SetAttributes(attribute.String("oid", claims.OID))
+
+			authDuration.Record(ctx, time.Since(start).Seconds())
 
 			numberUserRequests.Add(
 				ctx,
@@ -80,8 +87,6 @@ func AuthPublicMiddleware(cfg config.AuthConfig, redisClient *redis.RedisClient)
 					attribute.String("oid", claims.OID),
 				),
 			)
-
-			span.SetAttributes(attribute.String("oid", claims.OID))
 
 			// if cfg.Debug == "1" {
 			// 	log.Println(bearerToken)

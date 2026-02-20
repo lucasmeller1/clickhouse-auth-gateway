@@ -27,6 +27,10 @@ type ClaimsEntraID struct {
 	jwt.RegisteredClaims
 }
 
+type openIDConfig struct {
+	JWKSURI string `json:"jwks_uri"`
+}
+
 type EntraIDKey struct {
 	Kty           string   `json:"kty"`
 	Use           string   `json:"use"`
@@ -56,7 +60,7 @@ func GetUserOID(ctx context.Context) (string, error) {
 	claims, ok := ClaimsFromContext(ctx)
 
 	if !ok {
-		return "", fmt.Errorf("claims not found in context: user may not be authenticated")
+		return "", fmt.Errorf("claims not found in context")
 	}
 
 	if claims == nil {
@@ -127,6 +131,10 @@ func validateClaims(claims *ClaimsEntraID, cfg config.AuthConfig) error {
 
 func finalizeClaims(token *jwt.Token, cfg config.AuthConfig) (*ClaimsEntraID, error) {
 
+	if token == nil || !token.Valid {
+		return nil, fmt.Errorf("invalid token")
+	}
+
 	claims, ok := token.Claims.(*ClaimsEntraID)
 	if !ok {
 		return nil, fmt.Errorf("invalid claims type")
@@ -182,25 +190,49 @@ func FetchEntraJWKS(ctx context.Context, cfgAuth *config.AuthConfig) ([]byte, er
 	start := time.Now()
 	defer func() {
 		span.SetAttributes(
-			attribute.Float64("http.duration_ms", float64(time.Since(start).Milliseconds())),
+			attribute.Float64("http.duration_ms",
+				float64(time.Since(start).Milliseconds())),
 		)
 	}()
 
-	url := fmt.Sprintf(
-		"https://login.microsoftonline.com/%s/discovery/v2.0/keys",
+	// 1. Fetch OpenID Configuration
+	openIDURL := fmt.Sprintf(
+		"https://login.microsoftonline.com/%s/v2.0/.well-known/openid-configuration",
 		cfgAuth.TenantID,
 	)
 
 	span.SetAttributes(
 		attribute.String("tenant.id", cfgAuth.TenantID),
-		attribute.String("http.method", "GET"),
-		attribute.String("http.url", url),
+		attribute.String("openid.config.url", openIDURL),
 	)
 
-	dataBytes, err := handlers.GetRequest(ctx, url)
+	configBytes, err := handlers.GetRequest(ctx, openIDURL)
 	if err != nil {
 		span.RecordError(err)
+		return nil, fmt.Errorf("failed to fetch openid configuration: %w", err)
+	}
+
+	var oidc openIDConfig
+	if err := json.Unmarshal(configBytes, &oidc); err != nil {
+		span.RecordError(err)
+		return nil, fmt.Errorf("invalid openid configuration response: %w", err)
+	}
+
+	if oidc.JWKSURI == "" {
+		err := errors.New("jwks_uri missing from openid configuration")
+		span.RecordError(err)
 		return nil, err
+	}
+
+	span.SetAttributes(
+		attribute.String("jwks.uri", oidc.JWKSURI),
+	)
+
+	// 2. Fetch JWKS
+	dataBytes, err := handlers.GetRequest(ctx, oidc.JWKSURI)
+	if err != nil {
+		span.RecordError(err)
+		return nil, fmt.Errorf("failed to fetch jwks: %w", err)
 	}
 
 	span.SetAttributes(

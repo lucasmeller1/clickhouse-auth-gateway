@@ -28,6 +28,7 @@ func GetCachedTIDKeys(ctx context.Context, cfgAuth *config.AuthConfig, redisClie
 	span.SetAttributes(
 		attribute.String("tenant.id", cfgAuth.TenantID),
 		attribute.Bool("jwks.force_refresh", force),
+		attribute.String("cache.key", cacheKey),
 	)
 
 	if force {
@@ -53,7 +54,6 @@ func GetCachedTIDKeys(ctx context.Context, cfgAuth *config.AuthConfig, redisClie
 		return nil, err
 	}
 
-	span.SetAttributes(attribute.String("jwks.cache_status", "hit_or_miss_singleflight"))
 	return data, nil
 }
 
@@ -129,9 +129,11 @@ func ValidateEntraJWT(ctx context.Context, jwtToken string, cfg config.AuthConfi
 			// JWT Header Validation
 			func(token *jwt.Token) (any, error) {
 
-				_, ok := token.Method.(*jwt.SigningMethodRSA)
-				if !ok {
-					return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+				if token.Method.Alg() != jwt.SigningMethodRS256.Alg() {
+					return nil, fmt.Errorf(
+						"unexpected signing algorithm: %s",
+						token.Header["alg"],
+					)
 				}
 
 				kid, ok := token.Header["kid"].(string)

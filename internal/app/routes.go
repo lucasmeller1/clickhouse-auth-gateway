@@ -33,20 +33,16 @@ func getPublicRoutes(cfg *config.Config, ch *clickhouse.HTTPClickhouseClient, re
 	r.Group(func(r chi.Router) {
 		r.Use(apimw.AuthPublicMiddleware(cfg.Auth, redisClient))
 
-		// requests rate limiting by OID, if not present by IP (needs to be prevented by checking JWT)
 		r.Use(httprate.Limit(
 			cfg.Server.MaxRequests,
 			cfg.Server.MaxRequestsInterval,
 			httprate.WithKeyFuncs(func(r *http.Request) (string, error) {
-				oid, err := auth.GetUserOID(r.Context())
-				if err != nil {
-					return httprate.KeyByIP(r)
-				}
-				return oid, nil
+				return auth.GetUserOID(r.Context())
 			}),
 			httprateredis.WithRedisLimitCounter(&httprateredis.Config{
-				Host: cfg.Redis.Hostname,
-				Port: uint16(cfg.Redis.Port),
+				Host:     cfg.Redis.Hostname,
+				Port:     uint16(cfg.Redis.Port),
+				Password: cfg.Redis.Password,
 			}),
 		))
 

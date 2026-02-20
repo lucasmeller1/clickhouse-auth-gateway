@@ -41,7 +41,7 @@ func (c *HTTPClickhouseClient) GetUserTables(w http.ResponseWriter, r *http.Requ
 		status = "error"
 		httpStatus = http.StatusInternalServerError
 
-		handlers.JsonError(w, http.StatusInternalServerError, "failed to get authorization claims from context")
+		handlers.JsonError(w, httpStatus, "failed to get authorization claims from context")
 		return
 	}
 
@@ -66,7 +66,7 @@ func (c *HTTPClickhouseClient) GetUserTables(w http.ResponseWriter, r *http.Requ
 		status = "error"
 		httpStatus = http.StatusForbidden
 
-		handlers.JsonError(w, http.StatusForbidden, "no authorized databases available")
+		handlers.JsonError(w, httpStatus, "no authorized databases available")
 		return
 	}
 
@@ -108,7 +108,7 @@ func (c *HTTPClickhouseClient) GetUserTables(w http.ResponseWriter, r *http.Requ
 		status = "error"
 		httpStatus = http.StatusInternalServerError
 
-		handlers.JsonError(w, http.StatusInternalServerError, err.Error())
+		handlers.JsonError(w, httpStatus, err.Error())
 		return
 	}
 	defer resp.Body.Close()
@@ -127,6 +127,9 @@ func (c *HTTPClickhouseClient) GetUserTables(w http.ResponseWriter, r *http.Requ
 			handlers.RecordSpanError(span, err)
 			status = "error"
 			httpStatus = http.StatusInternalServerError
+			span.SetAttributes(
+				attribute.Bool("stream.error", true),
+			)
 			return
 		}
 		responseSize = int(n)
@@ -136,6 +139,9 @@ func (c *HTTPClickhouseClient) GetUserTables(w http.ResponseWriter, r *http.Requ
 			handlers.RecordSpanError(span, err)
 			status = "error"
 			httpStatus = http.StatusInternalServerError
+			span.SetAttributes(
+				attribute.String("stream.error", "failed to create gzip reader"),
+			)
 			return
 		}
 		defer gz.Close()
@@ -145,6 +151,9 @@ func (c *HTTPClickhouseClient) GetUserTables(w http.ResponseWriter, r *http.Requ
 			handlers.RecordSpanError(span, err)
 			status = "error"
 			httpStatus = http.StatusInternalServerError
+			span.SetAttributes(
+				attribute.Bool("stream.error", true),
+			)
 			return
 		}
 		responseSize = int(n)
@@ -154,6 +163,9 @@ func (c *HTTPClickhouseClient) GetUserTables(w http.ResponseWriter, r *http.Requ
 			handlers.RecordSpanError(span, err)
 			status = "error"
 			httpStatus = http.StatusInternalServerError
+			span.SetAttributes(
+				attribute.Bool("stream.error", true),
+			)
 			return
 		}
 		responseSize = int(n)
