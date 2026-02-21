@@ -56,9 +56,13 @@ type ServerConfig struct {
 	IdleTimeout       time.Duration
 	MaxHeaderBytes    int
 
-	ShutdownTimeout     time.Duration
-	MaxRequests         int
-	MaxRequestsInterval time.Duration
+	ShutdownTimeout time.Duration
+
+	MaxRequestsExportEDP         int
+	MaxRequestsIntervalExportEDP time.Duration
+
+	MaxRequestsTablesEDP         int
+	MaxRequestsIntervalTablesEDP time.Duration
 }
 
 type ClickhouseConfig struct {
@@ -94,8 +98,15 @@ type Config struct {
 	Clickhouse    ClickhouseConfig
 	Redis         RedisConfig
 	PrivateServer PrivateServerConfig
+	Endpoints     EndpointsConfig
 }
 
 type PrivateServerConfig struct {
 	InvalidateCacheToken string
+}
+
+type EndpointsConfig struct {
+	Export  string
+	Tables  string
+	Version string
 }

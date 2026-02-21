@@ -80,8 +80,7 @@ func (c *HTTPClickhouseClient) GetUserTables(w http.ResponseWriter, r *http.Requ
 	}
 	inClause := strings.Join(schemas, ",")
 
-	fullURL := fmt.Sprintf("https://%s%s", r.Host, r.URL.RequestURI())
-	modifiedURL := strings.Replace(fullURL, "/tables", "/export", 1)
+	fullURL := c.GetExportURL(r)
 
 	sql := fmt.Sprintf(`
 		SELECT 
@@ -98,7 +97,7 @@ func (c *HTTPClickhouseClient) GetUserTables(w http.ResponseWriter, r *http.Requ
 		ORDER BY
 			database ASC,
 			name ASC`,
-		modifiedURL,
+		fullURL,
 		inClause,
 	)
 

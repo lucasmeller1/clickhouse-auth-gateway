@@ -1,12 +1,14 @@
 package app
 
 import (
+	"fmt"
+	"log"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httprate"
-	httprateredis "github.com/go-chi/httprate-redis"
 	"github.com/lucasmeller1/excel_api/internal/auth"
 	"github.com/lucasmeller1/excel_api/internal/clickhouse"
 	"github.com/lucasmeller1/excel_api/internal/config"
@@ -16,6 +18,15 @@ import (
 
 func getPublicRoutes(cfg *config.Config, ch *clickhouse.HTTPClickhouseClient, redisClient *redis.RedisClient) chi.Router {
 	r := chi.NewRouter()
+
+	redisCounter, err := redis.NewRateLimiter(cfg.Redis)
+	if err != nil {
+		log.Fatalf("failed to create Redis rate limiter: %v", err)
+	}
+
+	exportEDP := fmt.Sprintf("/v%s/%s", cfg.Endpoints.Version, cfg.Endpoints.Export)
+	tablesEDP := fmt.Sprintf("/v%s/%s", cfg.Endpoints.Version, cfg.Endpoints.Tables)
+
 	r.Use(chimw.Recoverer)
 
 	r.Use(chimw.RequestID)
@@ -33,21 +44,15 @@ func getPublicRoutes(cfg *config.Config, ch *clickhouse.HTTPClickhouseClient, re
 	r.Group(func(r chi.Router) {
 		r.Use(apimw.AuthPublicMiddleware(cfg.Auth, redisClient))
 
-		r.Use(httprate.Limit(
-			cfg.Server.MaxRequests,
-			cfg.Server.MaxRequestsInterval,
-			httprate.WithKeyFuncs(func(r *http.Request) (string, error) {
-				return auth.GetUserOID(r.Context())
-			}),
-			httprateredis.WithRedisLimitCounter(&httprateredis.Config{
-				Host:     cfg.Redis.Hostname,
-				Port:     uint16(cfg.Redis.Port),
-				Password: cfg.Redis.Password,
-			}),
-		))
+		r.Group(func(r chi.Router) {
+			r.Use(customRateLimiter(redisCounter, cfg.Server.MaxRequestsExportEDP, cfg.Server.MaxRequestsIntervalExportEDP, cfg.Endpoints.Export))
+			r.Get(exportEDP, ch.ExportCSV)
+		})
 
-		r.Get("/v1/export", ch.ExportCSV)
-		r.Get("/v1/tables", ch.GetUserTables)
+		r.Group(func(r chi.Router) {
+			r.Use(customRateLimiter(redisCounter, cfg.Server.MaxRequestsTablesEDP, cfg.Server.MaxRequestsIntervalTablesEDP, cfg.Endpoints.Tables))
+			r.Get(tablesEDP, ch.GetUserTables)
+		})
 	})
 
 	return r
@@ -64,4 +69,15 @@ func GetPrivateRoutes(cfg *config.Config, redis *redis.RedisClient) chi.Router {
 	})
 
 	return r
+}
+
+func customRateLimiter(counter httprate.LimitCounter, max int, interval time.Duration, endpoint string) func(http.Handler) http.Handler {
+	return httprate.Limit(
+		max,
+		interval,
+		httprate.WithKeyFuncs(func(r *http.Request) (string, error) {
+			return endpoint + ":" + auth.GetUserOID(r.Context()), nil
+		}),
+		httprate.WithLimitCounter(counter),
+	)
 }

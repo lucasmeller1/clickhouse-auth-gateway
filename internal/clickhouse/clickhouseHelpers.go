@@ -33,29 +33,42 @@ type HTTPClickhouseClient struct {
 	redis            *redis.RedisClient
 	TTLTablesInRedis time.Duration
 	exportLimiter    *limiter.ExportLimiter
+	exportEDP        string
+	tablesEDP        string
 }
 
-func NewHTTPClickhouse(cfg config.ClickhouseConfig, redisClient *redis.RedisClient) *HTTPClickhouseClient {
+func NewHTTPClickhouse(cfg *config.Config, redisClient *redis.RedisClient) *HTTPClickhouseClient {
 	// used for HTTP requests to Clickhouse
 	t := http.DefaultTransport.(*http.Transport).Clone()
 	t.DisableCompression = true
-	t.MaxIdleConns = cfg.TransportConfig.MaxIdleConns
-	t.MaxIdleConnsPerHost = cfg.TransportConfig.MaxIdleConnsPerHost
-	t.IdleConnTimeout = cfg.TransportConfig.IdleConnTimeout
+	t.MaxIdleConns = cfg.Clickhouse.TransportConfig.MaxIdleConns
+	t.MaxIdleConnsPerHost = cfg.Clickhouse.TransportConfig.MaxIdleConnsPerHost
+	t.IdleConnTimeout = cfg.Clickhouse.TransportConfig.IdleConnTimeout
 
 	return &HTTPClickhouseClient{
-		baseURL: cfg.Hostname,
-		user:    cfg.User,
-		pass:    cfg.Password,
+		baseURL: cfg.Clickhouse.Hostname,
+		user:    cfg.Clickhouse.User,
+		pass:    cfg.Clickhouse.Password,
 		client: &http.Client{
-			Timeout:   time.Second * time.Duration(cfg.ClientTimeout),
+			Timeout:   time.Second * time.Duration(cfg.Clickhouse.ClientTimeout),
 			Transport: t,
 		},
-		publicSchemas:    cfg.PublicSchemas,
+		publicSchemas:    cfg.Clickhouse.PublicSchemas,
 		redis:            redisClient,
-		TTLTablesInRedis: cfg.TTLTablesInRedis,
-		exportLimiter:    limiter.NewExportLimiter(cfg.QueueSizeLimiter),
+		TTLTablesInRedis: cfg.Clickhouse.TTLTablesInRedis,
+		exportLimiter:    limiter.NewExportLimiter(cfg.Clickhouse.QueueSizeLimiter),
+		exportEDP:        cfg.Endpoints.Export,
+		tablesEDP:        cfg.Endpoints.Tables,
 	}
+}
+
+func (c *HTTPClickhouseClient) GetExportURL(r *http.Request) string {
+	newURL := *r.URL
+	newURL.Host = r.Host
+	newURL.Scheme = "https"
+	newURL.Path = strings.Replace(r.URL.Path, c.tablesEDP, c.exportEDP, 1)
+
+	return newURL.String()
 }
 
 func (c *HTTPClickhouseClient) QueryCSV(ctx context.Context, sql string) (*http.Response, error) {

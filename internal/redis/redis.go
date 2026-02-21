@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/go-chi/httprate"
+	httprateredis "github.com/go-chi/httprate-redis"
 	"github.com/lucasmeller1/excel_api/internal/config"
 	"github.com/lucasmeller1/excel_api/internal/handlers"
 	"github.com/redis/go-redis/v9"
@@ -26,6 +28,14 @@ type RedisClient struct {
 	Client *redis.Client
 	prefix string
 	group  singleflight.Group
+}
+
+func NewRateLimiter(cfg config.RedisConfig) (httprate.LimitCounter, error) {
+	return httprateredis.NewRedisLimitCounter(&httprateredis.Config{
+		Host:     cfg.Hostname,
+		Port:     uint16(cfg.Port),
+		Password: cfg.Password,
+	})
 }
 
 func NewRedis(cfg config.RedisConfig) *RedisClient {

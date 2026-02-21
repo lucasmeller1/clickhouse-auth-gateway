@@ -61,14 +61,18 @@ func Load() *Config {
 
 		// related to golang public server
 		Server: ServerConfig{
-			Addr:                addrPort,
-			ReadTimeout:         10 * time.Second,
-			ReadHeaderTimeout:   10 * time.Second,
-			WriteTimeout:        60 * time.Second,
-			IdleTimeout:         120 * time.Second,
-			MaxHeaderBytes:      1 << 20,
-			MaxRequests:         100,
-			MaxRequestsInterval: time.Minute,
+			Addr:              addrPort,
+			ReadTimeout:       10 * time.Second,
+			ReadHeaderTimeout: 10 * time.Second,
+			WriteTimeout:      60 * time.Second,
+			IdleTimeout:       120 * time.Second,
+			MaxHeaderBytes:    1 << 20,
+
+			MaxRequestsExportEDP:         200,
+			MaxRequestsIntervalExportEDP: time.Minute,
+
+			MaxRequestsTablesEDP:         30,
+			MaxRequestsIntervalTablesEDP: time.Minute,
 
 			// time to close all (both server, redis connection and otel)
 			ShutdownTimeout: 5 * time.Second,
@@ -103,6 +107,12 @@ func Load() *Config {
 		// related to golang private server
 		PrivateServer: PrivateServerConfig{
 			InvalidateCacheToken: invalidateCacheToken,
+		},
+
+		Endpoints: EndpointsConfig{
+			Export:  "exportar",
+			Tables:  "tabelas",
+			Version: "1",
 		},
 	}
 

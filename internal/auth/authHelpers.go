@@ -56,22 +56,22 @@ func ClaimsFromContext(ctx context.Context) (*ClaimsEntraID, bool) {
 	return claims, ok
 }
 
-func GetUserOID(ctx context.Context) (string, error) {
-	claims, ok := ClaimsFromContext(ctx)
+func GetUserOID(ctx context.Context) string {
+	claims, _ := ClaimsFromContext(ctx)
 
-	if !ok {
-		return "", fmt.Errorf("claims not found in context")
-	}
+	// if !ok {
+	// 	return "", fmt.Errorf("claims not found in context")
+	// }
+	//
+	// if claims == nil {
+	// 	return "", fmt.Errorf("claims found in context but object is nil")
+	// }
+	//
+	// if claims.OID == "" {
+	// 	return "", fmt.Errorf("user authenticated but OID is missing from claims")
+	// }
 
-	if claims == nil {
-		return "", fmt.Errorf("claims found in context but object is nil")
-	}
-
-	if claims.OID == "" {
-		return "", fmt.Errorf("user authenticated but OID is missing from claims")
-	}
-
-	return claims.OID, nil
+	return claims.OID
 }
 
 func validateEntraIDKey(key EntraIDKey) bool {
