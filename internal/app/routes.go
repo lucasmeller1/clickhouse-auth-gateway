@@ -65,7 +65,7 @@ func GetPrivateRoutes(cfg *config.Config, redis *redis.RedisClient) chi.Router {
 	r.Group(func(r chi.Router) {
 		r.Use(apimw.AuthPrivateMiddleware(cfg.PrivateServer))
 
-		r.Post("/invalidate", redis.InvalidateCacheEndpoint)
+		r.Post("/deleteCache", redis.DeleteCacheEndpoint)
 	})
 
 	return r

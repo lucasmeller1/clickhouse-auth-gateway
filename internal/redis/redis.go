@@ -179,7 +179,7 @@ func (r *RedisClient) Close() error {
 }
 
 // not idiomatic, change later
-func (redis *RedisClient) InvalidateCacheEndpoint(w http.ResponseWriter, r *http.Request) {
+func (redis *RedisClient) DeleteCacheEndpoint(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	ctx, span := tracer.Start(ctx, "Redis.InvalidateCacheEndpoint", trace.WithSpanKind(trace.SpanKindServer))
@@ -217,5 +217,8 @@ func (redis *RedisClient) InvalidateCacheEndpoint(w http.ResponseWriter, r *http
 
 	span.SetAttributes(attribute.Int64("redis.deleted_count", deleted))
 	successfulInvalidation = true
+
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, `{"deleted_keys": %d}`, deleted)
 }
