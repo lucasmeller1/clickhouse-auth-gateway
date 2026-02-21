@@ -86,7 +86,7 @@ func (r *RedisClient) GetWithSingleflight(ctx context.Context, key string, ttl t
 
 		data, fetchErr := getDataFunc(sfCtx)
 		if fetchErr != nil {
-			sfSpan.RecordError(fetchErr)
+			handlers.RecordSpanError(sfSpan, fetchErr)
 			return nil, fetchErr
 		}
 

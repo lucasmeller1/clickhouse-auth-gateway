@@ -66,7 +66,7 @@ func AuthPublicMiddleware(cfg config.AuthConfig, redisClient *redis.RedisClient)
 			claims, err := auth.ValidateEntraJWT(ctx, bearerToken, cfg, redisClient)
 
 			if err != nil {
-				span.RecordError(err)
+				handlers.RecordSpanError(span, err)
 				handlers.JsonError(w, http.StatusUnauthorized, "unauthorized")
 				return
 			}
