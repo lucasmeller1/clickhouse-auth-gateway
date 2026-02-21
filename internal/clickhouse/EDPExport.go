@@ -74,15 +74,7 @@ func (c *HTTPClickhouseClient) ExportCSV(w http.ResponseWriter, r *http.Request)
 
 	isCacheMiss := false
 
-	if err := c.exportLimiter.Acquire(ctx); err != nil {
-		http.Error(w, "request cancelled", http.StatusRequestTimeout)
-		return
-	}
-	activeExports.Record(ctx, int64(c.exportLimiter.Active()))
-
 	defer func() {
-		c.exportLimiter.Release()
-
 		activeExports.Record(ctx, int64(c.exportLimiter.Active()))
 
 		duration := time.Since(startTime).Seconds()
@@ -121,6 +113,13 @@ func (c *HTTPClickhouseClient) ExportCSV(w http.ResponseWriter, r *http.Request)
 	ttl := c.TTLTablesInRedis
 
 	gzipData, err := c.redis.GetWithSingleflight(ctx, cacheKey, ttl, func(sfCtx context.Context) ([]byte, error) {
+		if err := c.exportLimiter.Acquire(sfCtx); err != nil {
+			return nil, err
+		}
+		defer c.exportLimiter.Release()
+
+		activeExports.Record(sfCtx, int64(c.exportLimiter.Active()))
+
 		isCacheMiss = true
 		sql := fmt.Sprintf("SELECT * FROM %s.%s", quoteIdentifier(dbName), quoteIdentifier(tableName))
 
