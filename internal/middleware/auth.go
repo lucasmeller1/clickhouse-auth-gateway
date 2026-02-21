@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"github.com/lucasmeller1/excel_api/internal/config"
 	"github.com/lucasmeller1/excel_api/internal/handlers"
 	"github.com/lucasmeller1/excel_api/internal/redis"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -67,6 +69,12 @@ func AuthPublicMiddleware(cfg config.AuthConfig, redisClient *redis.RedisClient)
 
 			if err != nil {
 				handlers.RecordSpanError(span, err)
+
+				if errors.Is(err, redis.ErrRedisConnection) {
+					handlers.JsonError(w, http.StatusInternalServerError, "internal server error during authentication")
+					return
+				}
+
 				handlers.JsonError(w, http.StatusUnauthorized, "unauthorized")
 				return
 			}
@@ -77,6 +85,10 @@ func AuthPublicMiddleware(cfg config.AuthConfig, redisClient *redis.RedisClient)
 			}
 
 			span.SetAttributes(attribute.String("oid", claims.OID))
+
+			if labeler, ok := otelhttp.LabelerFromContext(ctx); ok {
+				labeler.Add(attribute.String("user.oid", claims.OID))
+			}
 
 			authDuration.Record(ctx, time.Since(start).Seconds())
 

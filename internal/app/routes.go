@@ -14,6 +14,9 @@ import (
 	"github.com/lucasmeller1/excel_api/internal/config"
 	apimw "github.com/lucasmeller1/excel_api/internal/middleware"
 	"github.com/lucasmeller1/excel_api/internal/redis"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 func getPublicRoutes(cfg *config.Config, ch *clickhouse.HTTPClickhouseClient, redisClient *redis.RedisClient) chi.Router {
@@ -26,16 +29,17 @@ func getPublicRoutes(cfg *config.Config, ch *clickhouse.HTTPClickhouseClient, re
 
 	exportEDP := fmt.Sprintf("/v%s/%s", cfg.Endpoints.Version, cfg.Endpoints.Export)
 	tablesEDP := fmt.Sprintf("/v%s/%s", cfg.Endpoints.Version, cfg.Endpoints.Tables)
+	healthEDP := "/healthz"
 
+	r.Use(OTelChiRouteMiddleware)
 	r.Use(chimw.Recoverer)
-
 	r.Use(chimw.RequestID)
 	r.Use(chimw.RealIP)
 	r.Use(chimw.Logger)
 
 	// unauthenticated
 	r.Group(func(r chi.Router) {
-		r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		r.Get(healthEDP, func(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte("ok"))
 		})
 	})
@@ -60,6 +64,7 @@ func getPublicRoutes(cfg *config.Config, ch *clickhouse.HTTPClickhouseClient, re
 
 func GetPrivateRoutes(cfg *config.Config, redis *redis.RedisClient) chi.Router {
 	r := chi.NewRouter()
+	r.Use(OTelChiRouteMiddleware)
 	r.Use(chimw.Recoverer)
 
 	r.Group(func(r chi.Router) {
@@ -76,8 +81,30 @@ func customRateLimiter(counter httprate.LimitCounter, max int, interval time.Dur
 		max,
 		interval,
 		httprate.WithKeyFuncs(func(r *http.Request) (string, error) {
-			return endpoint + ":" + auth.GetUserOID(r.Context()), nil
+			userOID, _ := auth.GetUserOID(r.Context())
+			return endpoint + ":" + userOID, nil
 		}),
 		httprate.WithLimitCounter(counter),
 	)
+}
+
+func OTelChiRouteMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		next.ServeHTTP(w, r)
+
+		rctx := chi.RouteContext(r.Context())
+		if rctx != nil {
+			routePattern := rctx.RoutePattern()
+
+			if routePattern != "" {
+				if labeler, ok := otelhttp.LabelerFromContext(r.Context()); ok {
+					labeler.Add(attribute.String("http.route", routePattern))
+				}
+
+				span := trace.SpanFromContext(r.Context())
+				span.SetName(r.Method + " " + routePattern)
+				span.SetAttributes(attribute.String("http.route", routePattern))
+			}
+		}
+	})
 }

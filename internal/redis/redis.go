@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -22,7 +23,10 @@ import (
 
 const name = "github.com/lucasmeller1/excel_api/internal/redis"
 
-var tracer = otel.Tracer(name)
+var (
+	tracer             = otel.Tracer(name)
+	ErrRedisConnection = errors.New("infrastructure_fault_redis")
+)
 
 type RedisClient struct {
 	Client *redis.Client
@@ -66,7 +70,12 @@ func (r *RedisClient) GetWithSingleflight(ctx context.Context, key string, ttl t
 	span.SetAttributes(attribute.String("cache.key", key))
 
 	val, err := r.GetCachedResponse(ctx, key)
-	if err == nil && val != nil {
+	if err != nil {
+		redisError := fmt.Errorf("%w: %v", ErrRedisConnection, err)
+		handlers.RecordSpanError(span, redisError)
+		return nil, redisError
+	}
+	if val != nil {
 		span.SetAttributes(attribute.Bool("cache.hit", true))
 		return val, nil
 	}
@@ -80,7 +89,12 @@ func (r *RedisClient) GetWithSingleflight(ctx context.Context, key string, ttl t
 		defer sfSpan.End()
 
 		val, err := r.GetCachedResponse(sfCtx, key)
-		if err == nil && val != nil {
+		if err != nil {
+			redisError := fmt.Errorf("%w: %v", ErrRedisConnection, err)
+			handlers.RecordSpanError(sfSpan, redisError)
+			return nil, redisError
+		}
+		if val != nil {
 			return val, nil
 		}
 
