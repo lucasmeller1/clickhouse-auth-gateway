@@ -1,3 +1,4 @@
 /prod/volumes/
 .env
 prod/.env
+prod/volumes

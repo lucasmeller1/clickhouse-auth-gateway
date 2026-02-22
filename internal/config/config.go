@@ -40,6 +40,7 @@ func Load() *Config {
 	passwordClickhouse := mustEnv("CLICKHOUSE_PASSWORD")
 	schemaClickhouse := mustEnv("CLICKHOUSE_SCHEMA")
 	hostnameClickhouse := fmt.Sprintf("http://%s:%s", mustEnv("CLICKHOUSE_HOSTNAME"), mustEnv("CLICKHOUSE_PORT"))
+	queueSizeLimiter := mustConvertStringToIntEnv("QUEUE_SIZE_LIMITER")
 
 	redisHostname := mustEnv("REDIS_HOSTNAME")
 	redisPort := mustConvertStringToIntEnv("REDIS_PORT")
@@ -50,6 +51,7 @@ func Load() *Config {
 
 	config := Config{
 
+		// related to EntraID Auth
 		Auth: AuthConfig{
 			TenantID: tid,
 			Issuer:   issuer,
@@ -57,18 +59,26 @@ func Load() *Config {
 			Debug:    debug,
 		},
 
+		// related to golang public server
 		Server: ServerConfig{
-			Addr:                addrPort,
-			ReadTimeout:         10 * time.Second,
-			ReadHeaderTimeout:   10 * time.Second,
-			WriteTimeout:        60 * time.Second,
-			IdleTimeout:         120 * time.Second,
-			MaxHeaderBytes:      1 << 20,
-			ShutdownTimeout:     5 * time.Second,
-			MaxRequests:         100,
-			MaxRequestsInterval: time.Minute,
+			Addr:              addrPort,
+			ReadTimeout:       10 * time.Second,
+			ReadHeaderTimeout: 10 * time.Second,
+			WriteTimeout:      60 * time.Second,
+			IdleTimeout:       120 * time.Second,
+			MaxHeaderBytes:    1 << 20,
+
+			MaxRequestsExportEDP:         200,
+			MaxRequestsIntervalExportEDP: time.Minute,
+
+			MaxRequestsTablesEDP:         30,
+			MaxRequestsIntervalTablesEDP: time.Minute,
+
+			// time to close all (both server, redis connection and otel)
+			ShutdownTimeout: 5 * time.Second,
 		},
 
+		// related to clickhouse conn, http client and cache
 		Clickhouse: ClickhouseConfig{
 			User:          userClickhouse,
 			Password:      passwordClickhouse,
@@ -83,8 +93,10 @@ func Load() *Config {
 				IdleConnTimeout:     90 * time.Second,
 			},
 			TTLTablesInRedis: time.Minute,
+			QueueSizeLimiter: queueSizeLimiter,
 		},
 
+		// related to redis cache
 		Redis: RedisConfig{
 			Hostname: redisHostname,
 			Port:     redisPort,
@@ -92,8 +104,15 @@ func Load() *Config {
 			DB:       redisDB,
 		},
 
+		// related to golang private server
 		PrivateServer: PrivateServerConfig{
 			InvalidateCacheToken: invalidateCacheToken,
+		},
+
+		Endpoints: EndpointsConfig{
+			Export:  "exportar",
+			Tables:  "tabelas",
+			Version: "1",
 		},
 	}
 

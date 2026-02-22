@@ -5,7 +5,7 @@ import (
 )
 
 var SchemaToGUID = map[string]string{
-	"Contabil_1": "390dc6a3-3b5e-4b1e-9575-871ecfbc3085",
+	"Contabil_1": "ed1130d9-f967-44c0-a12c-21aea8864896",
 	"Contabil_2": "11111111-1111-1111-1111-111111111112",
 	"Contabil_3": "11111111-1111-1111-1111-111111111113",
 	"Contabil_4": "11111111-1111-1111-1111-111111111114",
@@ -13,7 +13,7 @@ var SchemaToGUID = map[string]string{
 	"Contabil_6": "11111111-1111-1111-1111-111111111116",
 	"Contabil_7": "11111111-1111-1111-1111-111111111117",
 
-	"Financeiro_1": "641ceda5-b14d-4081-9ca7-05e666d21260",
+	"Financeiro_1": "24bde539-9b6d-494e-b922-c71c6e43dc9b",
 	"Financeiro_2": "22222222-2222-2222-2222-222222222222",
 	"Financeiro_3": "d3fabbd7-6e8c-4958-9656-edaaa49214a8",
 	"Financeiro_4": "22222222-2222-2222-2222-222222222224",
@@ -21,7 +21,7 @@ var SchemaToGUID = map[string]string{
 	"Financeiro_6": "22222222-2222-2222-2222-222222222226",
 	"Financeiro_7": "22222222-2222-2222-2222-222222222227",
 
-	"Operacional_1": "ed6018fc-fa37-48a8-be59-3f9fec870663",
+	"Operacional_1": "6138d620-bf80-4538-bb83-63e2e7aea359",
 	"Operacional_2": "33333333-3333-3333-3333-333333333332",
 	"Operacional_3": "2904b20b-c89d-4c44-8503-628dce75a616",
 	"Operacional_4": "33333333-3333-3333-3333-333333333334",
@@ -56,9 +56,13 @@ type ServerConfig struct {
 	IdleTimeout       time.Duration
 	MaxHeaderBytes    int
 
-	ShutdownTimeout     time.Duration
-	MaxRequests         int
-	MaxRequestsInterval time.Duration
+	ShutdownTimeout time.Duration
+
+	MaxRequestsExportEDP         int
+	MaxRequestsIntervalExportEDP time.Duration
+
+	MaxRequestsTablesEDP         int
+	MaxRequestsIntervalTablesEDP time.Duration
 }
 
 type ClickhouseConfig struct {
@@ -71,6 +75,8 @@ type ClickhouseConfig struct {
 	PublicSchemas    []string
 	TransportConfig  HTTPTransportClickhouse
 	TTLTablesInRedis time.Duration
+
+	QueueSizeLimiter int
 }
 
 type HTTPTransportClickhouse struct {
@@ -92,8 +98,15 @@ type Config struct {
 	Clickhouse    ClickhouseConfig
 	Redis         RedisConfig
 	PrivateServer PrivateServerConfig
+	Endpoints     EndpointsConfig
 }
 
 type PrivateServerConfig struct {
 	InvalidateCacheToken string
+}
+
+type EndpointsConfig struct {
+	Export  string
+	Tables  string
+	Version string
 }

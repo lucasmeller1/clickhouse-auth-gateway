@@ -16,6 +16,7 @@ services:
       CLICKHOUSE_USER: ${CLICKHOUSE_USER}
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
       CLICKHOUSE_SCHEMA: ${CLICKHOUSE_SCHEMA}
+      QUEUE_SIZE_LIMITER: ${QUEUE_SIZE_LIMITER}
 
       REDIS_HOSTNAME: ${REDIS_HOSTNAME}
       REDIS_PORT: ${REDIS_PORT}
@@ -23,9 +24,13 @@ services:
       REDIS_DB: ${REDIS_DB}
 
       INVALIDATE_CACHE_TOKEN: ${INVALIDATE_CACHE_TOKEN}
+
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_INSECURE: "true"
     depends_on:
       - clickhousedb
       - redis
+      - otel-collector
     restart: unless-stopped
     networks:
       - test_network
@@ -88,6 +93,69 @@ services:
     #  - ./volumes/redis_data:/data
     restart: unless-stopped
 
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: otel-collector
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    # depends_on:
+      # - tempo
+    # ports:
+    #   - "4317:4317"
+    #   - "4318:4318"
+    #   - "9464:9464"   # Prometheus metrics endpoint
+    networks:
+      - test_network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./volumes/prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - test_network
+
+  # tempo:
+  #   image: grafana/tempo:latest
+  #   container_name: tempo
+  #   command: [ "-config.file=/etc/tempo.yaml" ]
+  #   volumes:
+  #     - ./tempo.yaml:/etc/tempo.yaml
+  #     # - ./volumes/tempo_data:/var/lib/tempo # Uncomment for persistence
+  #   ports:
+  #     - "3200:3200"
+  #   networks:
+  #     - test_network
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    container_name: jaeger
+    ports:
+      - "16686:16686"
+    networks: 
+      - test_network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./volumes/grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+      # - tempo
+    networks:
+      - test_network
 
 networks:
   test_network:

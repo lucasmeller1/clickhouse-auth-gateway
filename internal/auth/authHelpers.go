@@ -4,13 +4,17 @@ import (
 	"context"
 	"crypto/rsa"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lucasmeller1/excel_api/internal/config"
 	"github.com/lucasmeller1/excel_api/internal/handlers"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	"strings"
 )
@@ -21,6 +25,10 @@ type ClaimsEntraID struct {
 	Version  string   `json:"ver"`
 	OID      string   `json:"oid"`
 	jwt.RegisteredClaims
+}
+
+type openIDConfig struct {
+	JWKSURI string `json:"jwks_uri"`
 }
 
 type EntraIDKey struct {
@@ -52,7 +60,7 @@ func GetUserOID(ctx context.Context) (string, error) {
 	claims, ok := ClaimsFromContext(ctx)
 
 	if !ok {
-		return "", fmt.Errorf("claims not found in context: user may not be authenticated")
+		return "", fmt.Errorf("claims not found in context")
 	}
 
 	if claims == nil {
@@ -123,6 +131,10 @@ func validateClaims(claims *ClaimsEntraID, cfg config.AuthConfig) error {
 
 func finalizeClaims(token *jwt.Token, cfg config.AuthConfig) (*ClaimsEntraID, error) {
 
+	if token == nil || !token.Valid {
+		return nil, fmt.Errorf("invalid token")
+	}
+
 	claims, ok := token.Claims.(*ClaimsEntraID)
 	if !ok {
 		return nil, fmt.Errorf("invalid claims type")
@@ -140,11 +152,7 @@ func isSignatureError(err error) bool {
 		return false
 	}
 
-	msg := err.Error()
-
-	return strings.Contains(msg, "signature") ||
-		strings.Contains(msg, "verification error") ||
-		strings.Contains(msg, "crypto/rsa")
+	return errors.Is(err, jwt.ErrTokenSignatureInvalid)
 }
 
 func rsaPublicKeyFromEntraJWK(key EntraIDKey) (*rsa.PublicKey, error) {
@@ -173,12 +181,63 @@ func rsaPublicKeyFromEntraJWK(key EntraIDKey) (*rsa.PublicKey, error) {
 }
 
 func FetchEntraJWKS(ctx context.Context, cfgAuth *config.AuthConfig) ([]byte, error) {
-	url := fmt.Sprintf("https://login.microsoftonline.com/%s/discovery/v2.0/keys", cfgAuth.TenantID)
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
 
-	dataBytes, err := handlers.GetRequest(ctx, url)
+	ctx, span := tracer.Start(ctx, "Auth.FetchEntraJWKS", trace.WithSpanKind(trace.SpanKindClient))
+	defer span.End()
+
+	start := time.Now()
+	defer func() {
+		span.SetAttributes(
+			attribute.Float64("http.duration_ms",
+				float64(time.Since(start).Milliseconds())),
+		)
+	}()
+
+	// 1. Fetch OpenID Configuration
+	openIDURL := fmt.Sprintf(
+		"https://login.microsoftonline.com/%s/v2.0/.well-known/openid-configuration",
+		cfgAuth.TenantID,
+	)
+
+	span.SetAttributes(
+		attribute.String("tenant.id", cfgAuth.TenantID),
+		attribute.String("openid.config.url", openIDURL),
+	)
+
+	configBytes, err := handlers.GetRequest(ctx, openIDURL)
 	if err != nil {
+		handlers.RecordSpanError(span, err)
+		return nil, fmt.Errorf("failed to fetch openid configuration: %w", err)
+	}
+
+	var oidc openIDConfig
+	if err := json.Unmarshal(configBytes, &oidc); err != nil {
+		handlers.RecordSpanError(span, err)
+		return nil, fmt.Errorf("invalid openid configuration response: %w", err)
+	}
+
+	if oidc.JWKSURI == "" {
+		err := errors.New("jwks_uri missing from openid configuration")
+		handlers.RecordSpanError(span, err)
 		return nil, err
 	}
+
+	span.SetAttributes(
+		attribute.String("jwks.uri", oidc.JWKSURI),
+	)
+
+	// 2. Fetch JWKS
+	dataBytes, err := handlers.GetRequest(ctx, oidc.JWKSURI)
+	if err != nil {
+		handlers.RecordSpanError(span, err)
+		return nil, fmt.Errorf("failed to fetch jwks: %w", err)
+	}
+
+	span.SetAttributes(
+		attribute.Int("http.response_size_bytes", len(dataBytes)),
+	)
 
 	return dataBytes, nil
 }
