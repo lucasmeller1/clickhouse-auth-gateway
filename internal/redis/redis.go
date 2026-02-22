@@ -156,7 +156,7 @@ func (r *RedisClient) SetCachedResponse(ctx context.Context, key string, data []
 	span.SetAttributes(
 		attribute.String("redis.key", fullKey),
 		attribute.String("redis.operation", "SET"),
-		attribute.Float64("redis.value_size", handlers.BytesToMiB(len(data))),
+		attribute.Float64("redis.size_mib", handlers.BytesToMiB(len(data))),
 		attribute.Int64("redis.ttl_seconds", int64(ttl.Seconds())),
 	)
 
