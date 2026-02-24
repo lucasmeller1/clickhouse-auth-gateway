@@ -103,6 +103,13 @@ func (c *HTTPClickhouseClient) GetUserTables(w http.ResponseWriter, r *http.Requ
 
 	resp, err := c.QueryCSV(ctx, sql)
 	if err != nil {
+		if handlers.IsCanceled(ctx, err) {
+			status = "canceled"
+			httpStatus = 499
+			span.SetAttributes(attribute.Bool("client.canceled", true))
+			return
+		}
+
 		handlers.RecordSpanError(span, err)
 		status = "error"
 		httpStatus = http.StatusInternalServerError
@@ -123,6 +130,12 @@ func (c *HTTPClickhouseClient) GetUserTables(w http.ResponseWriter, r *http.Requ
 		w.Header().Set("Content-Encoding", "gzip")
 		n, err := io.Copy(w, resp.Body)
 		if err != nil {
+			if handlers.IsCanceled(ctx, err) {
+				status = "canceled"
+				httpStatus = 499
+				span.SetAttributes(attribute.Bool("client.canceled", true))
+				return
+			}
 			handlers.RecordSpanError(span, err)
 			status = "error"
 			httpStatus = http.StatusInternalServerError
@@ -147,6 +160,12 @@ func (c *HTTPClickhouseClient) GetUserTables(w http.ResponseWriter, r *http.Requ
 
 		n, err := io.Copy(w, gz)
 		if err != nil {
+			if handlers.IsCanceled(ctx, err) {
+				status = "canceled"
+				httpStatus = 499
+				span.SetAttributes(attribute.Bool("client.canceled", true))
+				return
+			}
 			handlers.RecordSpanError(span, err)
 			status = "error"
 			httpStatus = http.StatusInternalServerError
@@ -159,6 +178,13 @@ func (c *HTTPClickhouseClient) GetUserTables(w http.ResponseWriter, r *http.Requ
 	} else {
 		n, err := io.Copy(w, resp.Body)
 		if err != nil {
+			if handlers.IsCanceled(ctx, err) {
+				status = "canceled"
+				httpStatus = 499
+				span.SetAttributes(attribute.Bool("client.canceled", true))
+				return
+			}
+
 			handlers.RecordSpanError(span, err)
 			status = "error"
 			httpStatus = http.StatusInternalServerError

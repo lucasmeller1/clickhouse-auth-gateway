@@ -143,6 +143,13 @@ func (c *HTTPClickhouseClient) ExportCSV(w http.ResponseWriter, r *http.Request)
 	})
 
 	if err != nil {
+		if handlers.IsCanceled(ctx, err) {
+			status = "canceled"
+			httpStatus = 499
+			span.SetAttributes(attribute.Bool("client.canceled", true))
+			return
+		}
+
 		status = "error"
 		handlers.RecordSpanError(span, err)
 		httpStatus = http.StatusInternalServerError
@@ -161,7 +168,9 @@ func (c *HTTPClickhouseClient) ExportCSV(w http.ResponseWriter, r *http.Request)
 	}
 
 	httpStatus = c.serveGzip(ctx, w, r, gzipData)
-	if httpStatus >= 400 {
+	if httpStatus == 499 {
+		status = "canceled"
+	} else if httpStatus >= 400 {
 		status = "error"
 	}
 }
@@ -194,6 +203,10 @@ func (c *HTTPClickhouseClient) serveGzip(ctx context.Context, w http.ResponseWri
 	if clientAcceptsGzip {
 		w.Header().Set("Content-Encoding", "gzip")
 		if _, err := w.Write(data); err != nil {
+			if handlers.IsCanceled(ctx, err) {
+				span.SetAttributes(attribute.Bool("client.canceled", true))
+				return 499
+			}
 			handlers.RecordSpanError(span, err)
 			return http.StatusInternalServerError
 		}
@@ -209,6 +222,10 @@ func (c *HTTPClickhouseClient) serveGzip(ctx context.Context, w http.ResponseWri
 	defer gzReader.Close()
 
 	if _, err := io.Copy(w, gzReader); err != nil {
+		if handlers.IsCanceled(ctx, err) {
+			span.SetAttributes(attribute.Bool("client.canceled", true))
+			return 499
+		}
 		handlers.RecordSpanError(span, err)
 		return http.StatusInternalServerError
 	}

@@ -3,26 +3,16 @@ package telemetry
 import (
 	"context"
 	"errors"
-	"time"
-
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
-
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/stdout/stdoutlog"
-	// "go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
-	// "go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
-
-	// "go.opentelemetry.io/otel/exporters/stdout/stdoutmetric"
-	// "go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
-
-	// "go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/log"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 )
 
 func newResource(ctx context.Context) (*resource.Resource, error) {
@@ -113,15 +103,13 @@ func newPropagator() propagation.TextMapPropagator {
 
 func newTracerProvider(ctx context.Context, res *resource.Resource) (*trace.TracerProvider, error) {
 	traceExporter, err := otlptracegrpc.New(ctx)
-	// traceExporter, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
 	if err != nil {
 		return nil, err
 	}
 
+	// read every 5s
 	tracerProvider := trace.NewTracerProvider(
-		trace.WithBatcher(traceExporter,
-			// Default is 5s. Set to 1s for demonstrative purposes.
-			trace.WithBatchTimeout(time.Second)),
+		trace.WithBatcher(traceExporter),
 		trace.WithResource(res),
 	)
 	return tracerProvider, nil
@@ -133,10 +121,9 @@ func newMeterProvider(ctx context.Context, res *resource.Resource) (*metric.Mete
 		return nil, err
 	}
 
+	// read every 1m
 	meterProvider := metric.NewMeterProvider(
-		metric.WithReader(metric.NewPeriodicReader(metricExporter,
-			// Default is 1m. Set to 3s for demonstrative purposes.
-			metric.WithInterval(3*time.Second))),
+		metric.WithReader(metric.NewPeriodicReader(metricExporter)),
 		metric.WithResource(res),
 	)
 	return meterProvider, nil
