@@ -87,10 +87,8 @@ services:
       sh -c "redis-server --requirepass $REDIS_PASSWORD"
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
-    # ports:
-    #   - "6379:6379"
-    #volumes:
-    #  - ./volumes/redis_data:/data
+    volumes:
+      - ./volumes/redis_data:/data
     restart: unless-stopped
 
   otel-collector:
@@ -101,12 +99,19 @@ services:
       - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
     depends_on:
       - tempo
-    # ports:
-    #   - "4317:4317"
-    #   - "4318:4318"
-    #   - "9464:9464"   # Prometheus metrics endpoint
     networks:
       - test_network
+
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   container_name: prometheus
+  #   volumes:
+  #     - ./prometheus.yml:/etc/prometheus/prometheus.yml
+  #     - ./volumes/prometheus_data:/prometheus
+  #   ports:
+  #     - "9090:9090"
+  #   networks:
+  #     - test_network
 
   prometheus:
     image: prom/prometheus:latest
@@ -118,6 +123,10 @@ services:
       - "9090:9090"
     networks:
       - test_network
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-remote-write-receiver'
 
   tempo:
     image: grafana/tempo:2.9.0
@@ -126,19 +135,11 @@ services:
     user: root
     volumes:
       - ./tempo.yaml:/etc/tempo.yaml
-      - ./volumes/tempo_data:/var/tempo # Uncomment for persistence
+      - ./volumes/tempo_data:/var/tempo
     ports:
       - "3200:3200"
     networks:
       - test_network
-
-  # jaeger:
-  #   image: jaegertracing/all-in-one:1.57
-  #   container_name: jaeger
-  #   ports:
-  #     - "16686:16686"
-  #   networks: 
-  #     - test_network
 
   grafana:
     image: grafana/grafana:latest
