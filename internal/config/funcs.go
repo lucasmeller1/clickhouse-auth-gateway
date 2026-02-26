@@ -3,10 +3,30 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
+	"strconv"
 
 	"github.com/google/uuid"
 )
+
+func mustEnv(name string) string {
+	value := os.Getenv(name)
+	if value == "" {
+		slog.Error(fmt.Sprintf("env %s must not be empty", name))
+		os.Exit(1)
+	}
+	return value
+}
+
+func mustConvertStringToIntEnv(s string) int {
+	number, err := strconv.Atoi(os.Getenv(s))
+	if err != nil {
+		slog.Error(fmt.Sprintf("failed to convert %s", s), "error", err)
+		os.Exit(1)
+	}
+	return number
+}
 
 func (sc *SchemaConfig) LookupSchemaByGUID(s string) (string, bool) {
 	schema, ok := sc.GUIDToSchema[s]

@@ -2,19 +2,19 @@ package app
 
 import (
 	"context"
-	"log"
+	"fmt"
+	"github.com/lucasmeller1/excel_api/internal/clickhouse"
+	"github.com/lucasmeller1/excel_api/internal/config"
+	"github.com/lucasmeller1/excel_api/internal/redis"
+	"github.com/lucasmeller1/excel_api/internal/telemetry"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 	"time"
-
-	"github.com/lucasmeller1/excel_api/internal/clickhouse"
-	"github.com/lucasmeller1/excel_api/internal/config"
-	"github.com/lucasmeller1/excel_api/internal/redis"
-	"github.com/lucasmeller1/excel_api/internal/telemetry"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 type customServer struct {
@@ -64,7 +64,7 @@ func (svr *customServer) Run() {
 
 	otelShutdown, err := telemetry.SetupOTelSDK(ctx)
 	if err != nil {
-		log.Printf("failed to start Otel: %v", err)
+		slog.Error("failed to start Otel", "error", err)
 		stop()
 	}
 
@@ -72,24 +72,24 @@ func (svr *customServer) Run() {
 
 	// --- Start Public Server ---
 	wg.Go(func() {
-		log.Printf("public API started on port %s\n", svr.PublicServer.Addr)
+		slog.Info(fmt.Sprintf("public API started on port %s\n", svr.PublicServer.Addr))
 		if err := svr.PublicServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Printf("public server error: %v", err)
+			slog.Error("public server error", "error", err)
 			stop()
 		}
 	})
 
 	// --- Start Internal Server ---
 	wg.Go(func() {
-		log.Printf("internal API started on port %s\n", svr.PrivateServer.Addr)
+		slog.Info(fmt.Sprintf("private API started on port %s\n", svr.PublicServer.Addr))
 		if err := svr.PrivateServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Printf("internal server error: %v", err)
+			slog.Error("private server error", "error", err)
 			stop()
 		}
 	})
 
 	<-ctx.Done()
-	log.Println("shutdown initiated")
+	slog.Info("shutdown initiated")
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), svr.ShutdownTimeout)
 	defer cancel()
@@ -98,26 +98,26 @@ func (svr *customServer) Run() {
 
 	shutdownWg.Go(func() {
 		if err := svr.PublicServer.Shutdown(shutdownCtx); err != nil {
-			log.Printf("public server shutdown failed: %v", err)
+			slog.Error("public server shutdown failed", "error", err)
 		}
 	})
 
 	shutdownWg.Go(func() {
 		if err := svr.PrivateServer.Shutdown(shutdownCtx); err != nil {
-			log.Printf("internal server shutdown failed: %v", err)
+			slog.Error("private server shutdown failed", "error", err)
 		}
 	})
 
 	shutdownWg.Wait()
 
 	if err := svr.redisClient.Close(); err != nil {
-		log.Printf("error closing redis: %v", err)
+		slog.Error("error closing redis", "error", err)
 	}
 
 	if err := otelShutdown(shutdownCtx); err != nil {
-		log.Printf("error shutting down OTel: %v", err)
+		slog.Error("error shutting down OTel", "error", err)
 	}
 
 	wg.Wait()
-	log.Println("shutdown completed")
+	slog.Info("shutdown completed")
 }

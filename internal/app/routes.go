@@ -2,8 +2,9 @@ package app
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -25,7 +26,8 @@ func getPublicRoutes(cfg *config.Config, ch *clickhouse.HTTPClickhouseClient, re
 
 	redisCounter, err := redis.NewRateLimiter(cfg.Redis)
 	if err != nil {
-		log.Fatalf("failed to create Redis rate limiter: %v", err)
+		slog.Error("failed to create Redis rate limiter", "error", err)
+		os.Exit(1)
 	}
 
 	exportEDP := fmt.Sprintf("/v%s/%s", cfg.Endpoints.Version, cfg.Endpoints.Export)

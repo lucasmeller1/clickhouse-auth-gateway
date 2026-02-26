@@ -3,34 +3,18 @@ package config
 import (
 	"fmt"
 	"github.com/joho/godotenv"
-	"log"
+	"log/slog"
 	"os"
-	"strconv"
 	"time"
 )
-
-func mustEnv(name string) string {
-	value := os.Getenv(name)
-	if value == "" {
-		log.Fatalf("env %s must not be empty", name)
-	}
-	return value
-}
-
-func mustConvertStringToIntEnv(s string) int {
-	number, err := strconv.Atoi(os.Getenv(s))
-	if err != nil {
-		log.Fatalf("failed to convert %s: %v", s, err)
-	}
-	return number
-}
 
 func Load() *Config {
 	_ = godotenv.Load()
 
 	schemaConfig, err := LoadSchemaConfig("/schema_guids.json")
 	if err != nil {
-		log.Fatalf("failed to load schema config: %v", err)
+		slog.Error("failed to load schema config", "error", err)
+		os.Exit(1)
 	}
 
 	addrPort := ":" + mustEnv("SERVER_PORT")

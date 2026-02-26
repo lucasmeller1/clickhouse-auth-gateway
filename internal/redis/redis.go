@@ -4,6 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"os"
+	"time"
+
 	"github.com/go-chi/httprate"
 	httprateredis "github.com/go-chi/httprate-redis"
 	"github.com/lucasmeller1/excel_api/internal/config"
@@ -14,8 +18,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/singleflight"
-	"log"
-	"time"
 )
 
 const name = "github.com/lucasmeller1/excel_api/internal/redis"
@@ -51,7 +53,8 @@ func NewRedis(cfg config.RedisConfig) *RedisClient {
 	defer cancel()
 
 	if err := rdb.Ping(ctx).Err(); err != nil {
-		log.Fatal("failed to start redis")
+		slog.Error("failed to start redis", "error", err)
+		os.Exit(1)
 	}
 
 	return &RedisClient{

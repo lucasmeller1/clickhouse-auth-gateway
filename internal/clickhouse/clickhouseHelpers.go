@@ -141,7 +141,7 @@ func (c *HTTPClickhouseClient) QueryCSV(ctx context.Context, sql string) (*http.
 		cleanErr := normalizeClickhouseError(errorText)
 		err = errors.New(cleanErr)
 		telemetry.RecordSpanError(span, err)
-		return nil, errors.New(cleanErr)
+		return nil, err
 	}
 
 	if resp.Header.Get("Content-Encoding") != "gzip" {
