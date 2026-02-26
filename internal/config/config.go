@@ -28,6 +28,11 @@ func mustConvertStringToIntEnv(s string) int {
 func Load() *Config {
 	_ = godotenv.Load()
 
+	schemaConfig, err := LoadSchemaConfig("/schema_guids.json")
+	if err != nil {
+		log.Fatalf("failed to load schema config: %v", err)
+	}
+
 	addrPort := ":" + mustEnv("SERVER_PORT")
 
 	tid := mustEnv("TENANT_ID")
@@ -114,17 +119,9 @@ func Load() *Config {
 			Tables:  "tabelas",
 			Version: "1",
 		},
+
+		SchemasGUIDs: *schemaConfig,
 	}
 
 	return &config
-}
-
-func LookupSchemaByGUID(s string) (string, bool) {
-	schema, ok := GUIDToSchema[s]
-	return schema, ok
-}
-
-func LookupGUIDBySchema(s string) (string, bool) {
-	guid, ok := SchemaToGUID[s]
-	return guid, ok
 }

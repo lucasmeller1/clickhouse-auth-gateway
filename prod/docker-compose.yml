@@ -34,7 +34,8 @@ services:
     restart: unless-stopped
     networks:
       - test_network
-
+    volumes:
+      - ./schema_guids.json:/schema_guids.json:ro
 
   # nginx:
   #   image: nginx:1.27

@@ -11,7 +11,6 @@ import (
 	"net/http"
 
 	"github.com/lucasmeller1/excel_api/internal/auth"
-	"github.com/lucasmeller1/excel_api/internal/config"
 	"github.com/lucasmeller1/excel_api/internal/handlers"
 	"github.com/lucasmeller1/excel_api/internal/telemetry"
 	"github.com/lucasmeller1/excel_api/internal/utils"
@@ -57,7 +56,7 @@ func (c *HTTPClickhouseClient) GetUserTables(w http.ResponseWriter, r *http.Requ
 	}
 
 	for _, guid := range claims.Groups {
-		if schema, found := config.LookupSchemaByGUID(guid); found {
+		if schema, found := c.schemaConfigs.LookupSchemaByGUID(guid); found {
 			authorizedSet[schema] = struct{}{}
 		}
 	}

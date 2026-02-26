@@ -4,24 +4,21 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"errors"
 	"fmt"
-	"io"
-	"strings"
-
-	"net/http"
-	"time"
-
+	"github.com/lucasmeller1/excel_api/internal/auth"
 	"github.com/lucasmeller1/excel_api/internal/config"
 	"github.com/lucasmeller1/excel_api/internal/queue"
 	"github.com/lucasmeller1/excel_api/internal/redis"
 	"github.com/lucasmeller1/excel_api/internal/telemetry"
+	"github.com/lucasmeller1/excel_api/internal/utils"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
-
-	"errors"
+	"io"
+	"net/http"
 	"slices"
-
-	"github.com/lucasmeller1/excel_api/internal/auth"
+	"strings"
+	"time"
 )
 
 type HTTPClickhouseClient struct {
@@ -33,8 +30,8 @@ type HTTPClickhouseClient struct {
 	redis            *redis.RedisClient
 	TTLTablesInRedis time.Duration
 	exportLimiter    *limiter.ExportLimiter
-	exportEDP        string
-	tablesEDP        string
+	endpoints        *config.EndpointsConfig
+	schemaConfigs    *config.SchemaConfig
 }
 
 func NewHTTPClickhouse(cfg *config.Config, redisClient *redis.RedisClient) *HTTPClickhouseClient {
@@ -57,8 +54,8 @@ func NewHTTPClickhouse(cfg *config.Config, redisClient *redis.RedisClient) *HTTP
 		redis:            redisClient,
 		TTLTablesInRedis: cfg.Clickhouse.TTLTablesInRedis,
 		exportLimiter:    limiter.NewExportLimiter(cfg.Clickhouse.QueueSizeLimiter),
-		exportEDP:        cfg.Endpoints.Export,
-		tablesEDP:        cfg.Endpoints.Tables,
+		endpoints:        &cfg.Endpoints,
+		schemaConfigs:    &cfg.SchemasGUIDs,
 	}
 }
 
@@ -66,7 +63,7 @@ func (c *HTTPClickhouseClient) GetExportURL(r *http.Request) string {
 	newURL := *r.URL
 	newURL.Host = r.Host
 	newURL.Scheme = "https"
-	newURL.Path = strings.Replace(r.URL.Path, c.tablesEDP, c.exportEDP, 1)
+	newURL.Path = strings.Replace(r.URL.Path, c.endpoints.Tables, c.endpoints.Export, 1)
 
 	return newURL.String()
 }
@@ -154,11 +151,6 @@ func (c *HTTPClickhouseClient) QueryCSV(ctx context.Context, sql string) (*http.
 	return resp, nil
 }
 
-func quoteIdentifier(identifier string) string {
-	escaped := strings.ReplaceAll(identifier, `"`, `""`)
-	return fmt.Sprintf(`"%s"`, escaped)
-}
-
 func normalizeClickhouseError(s string) string {
 	if strings.Contains(s, "UNKNOWN_TABLE") {
 		return "Table does not exist"
@@ -171,7 +163,7 @@ func normalizeClickhouseError(s string) string {
 	return "internal server error"
 }
 
-func ValidateDatabase(r *http.Request, publicSchemas []string) (int, error) {
+func (c *HTTPClickhouseClient) ValidateDatabase(r *http.Request, publicSchemas []string) (int, error) {
 	claims, ok := auth.ClaimsFromContext(r.Context())
 	if !ok {
 		return http.StatusInternalServerError, errors.New("failed to get authorization claims from context")
@@ -186,13 +178,17 @@ func ValidateDatabase(r *http.Request, publicSchemas []string) (int, error) {
 		return http.StatusBadRequest, errors.New("missing database or table")
 	}
 
+	if !(utils.IsValidIdentifier(database) && utils.IsValidIdentifier(table)) {
+		return http.StatusBadRequest, errors.New("database or table not valid")
+	}
+
 	// check if requested schema is from the public ones
 	if slices.Contains(publicSchemas, database) {
 		return http.StatusOK, nil
 	}
 
 	// get GUID from know schemas (sector_level)
-	databaseGUID, ok := config.LookupGUIDBySchema(database)
+	databaseGUID, ok := c.schemaConfigs.LookupGUIDBySchema(database)
 	if !ok {
 		return http.StatusBadRequest, errors.New("unknown database schema")
 	}

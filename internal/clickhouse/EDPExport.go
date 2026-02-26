@@ -5,11 +5,6 @@ import (
 	"compress/gzip"
 	"context"
 	"fmt"
-	"io"
-	"net/http"
-	"strings"
-	"time"
-
 	"github.com/lucasmeller1/excel_api/internal/handlers"
 	"github.com/lucasmeller1/excel_api/internal/telemetry"
 	"github.com/lucasmeller1/excel_api/internal/utils"
@@ -17,6 +12,10 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
+	"io"
+	"net/http"
+	"strings"
+	"time"
 )
 
 const (
@@ -97,7 +96,7 @@ func (c *HTTPClickhouseClient) ExportCSV(w http.ResponseWriter, r *http.Request)
 		apiRequestCount.Add(ctx, 1, metric.WithAttributes(attrs...))
 	}()
 
-	statusCode, err := ValidateDatabase(r, c.publicSchemas)
+	statusCode, err := c.ValidateDatabase(r, c.publicSchemas)
 	if err != nil {
 		telemetry.RecordSpanError(span, err)
 
@@ -123,7 +122,7 @@ func (c *HTTPClickhouseClient) ExportCSV(w http.ResponseWriter, r *http.Request)
 		activeExports.Record(sfCtx, int64(c.exportLimiter.Active()))
 
 		isCacheMiss = true
-		sql := fmt.Sprintf("SELECT * FROM %s.%s", quoteIdentifier(dbName), quoteIdentifier(tableName))
+		sql := fmt.Sprintf("SELECT * FROM %s.%s", utils.QuoteIdentifier(dbName), utils.QuoteIdentifier(tableName))
 
 		resp, err := c.QueryCSV(sfCtx, sql)
 		if err != nil {
