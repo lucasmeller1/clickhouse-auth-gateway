@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/lucasmeller1/excel_api/internal/config"
-	"github.com/lucasmeller1/excel_api/internal/handlers"
 	"github.com/lucasmeller1/excel_api/internal/queue"
 	"github.com/lucasmeller1/excel_api/internal/redis"
+	"github.com/lucasmeller1/excel_api/internal/telemetry"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
@@ -101,7 +101,7 @@ func (c *HTTPClickhouseClient) QueryCSV(ctx context.Context, sql string) (*http.
 		bytes.NewBufferString(query),
 	)
 	if err != nil {
-		handlers.RecordSpanError(span, err)
+		telemetry.RecordSpanError(span, err)
 		return nil, errors.New("failed to create POST request to database")
 	}
 
@@ -110,7 +110,7 @@ func (c *HTTPClickhouseClient) QueryCSV(ctx context.Context, sql string) (*http.
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		handlers.RecordSpanError(span, err)
+		telemetry.RecordSpanError(span, err)
 		return nil, errors.New("failed to send POST request to database")
 	}
 
@@ -127,7 +127,7 @@ func (c *HTTPClickhouseClient) QueryCSV(ctx context.Context, sql string) (*http.
 		if resp.Header.Get("Content-Encoding") == "gzip" {
 			gzReader, err := gzip.NewReader(resp.Body)
 			if err != nil {
-				handlers.RecordSpanError(span, err)
+				telemetry.RecordSpanError(span, err)
 				return nil, fmt.Errorf("failed to unzip error response: %w", err)
 			}
 			defer gzReader.Close()
@@ -136,14 +136,14 @@ func (c *HTTPClickhouseClient) QueryCSV(ctx context.Context, sql string) (*http.
 
 		body, err := io.ReadAll(reader)
 		if err != nil {
-			handlers.RecordSpanError(span, err)
+			telemetry.RecordSpanError(span, err)
 			return nil, fmt.Errorf("failed to read error body: %w", err)
 		}
 
 		errorText := strings.TrimSpace(string(body))
 		cleanErr := normalizeClickhouseError(errorText)
 		err = errors.New(cleanErr)
-		handlers.RecordSpanError(span, err)
+		telemetry.RecordSpanError(span, err)
 		return nil, errors.New(cleanErr)
 	}
 

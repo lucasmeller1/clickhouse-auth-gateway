@@ -4,20 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
-	"net/http"
-	"strings"
-
 	"github.com/go-chi/httprate"
 	httprateredis "github.com/go-chi/httprate-redis"
 	"github.com/lucasmeller1/excel_api/internal/config"
-	"github.com/lucasmeller1/excel_api/internal/handlers"
+	"github.com/lucasmeller1/excel_api/internal/telemetry"
+	"github.com/lucasmeller1/excel_api/internal/utils"
 	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/singleflight"
-
+	"log"
 	"time"
 )
 
@@ -72,7 +69,7 @@ func (r *RedisClient) GetWithSingleflight(ctx context.Context, key string, ttl t
 	val, err := r.GetCachedResponse(ctx, key)
 	if err != nil {
 		redisError := fmt.Errorf("%w: %v", ErrRedisConnection, err)
-		handlers.RecordSpanError(span, redisError)
+		telemetry.RecordSpanError(span, redisError)
 		return nil, redisError
 	}
 	if val != nil {
@@ -91,7 +88,7 @@ func (r *RedisClient) GetWithSingleflight(ctx context.Context, key string, ttl t
 		val, err := r.GetCachedResponse(sfCtx, key)
 		if err != nil {
 			redisError := fmt.Errorf("%w: %v", ErrRedisConnection, err)
-			handlers.RecordSpanError(sfSpan, redisError)
+			telemetry.RecordSpanError(sfSpan, redisError)
 			return nil, redisError
 		}
 		if val != nil {
@@ -100,13 +97,13 @@ func (r *RedisClient) GetWithSingleflight(ctx context.Context, key string, ttl t
 
 		data, fetchErr := getDataFunc(sfCtx)
 		if fetchErr != nil {
-			handlers.RecordSpanError(sfSpan, fetchErr)
+			telemetry.RecordSpanError(sfSpan, fetchErr)
 			return nil, fetchErr
 		}
 
 		err = r.SetCachedResponse(sfCtx, key, data, ttl)
 		if err != nil {
-			handlers.RecordSpanError(sfSpan, fmt.Errorf("failed to SET redis key: %v", key))
+			telemetry.RecordSpanError(sfSpan, fmt.Errorf("failed to SET redis key: %v", key))
 		}
 
 		return data, nil
@@ -139,7 +136,7 @@ func (r *RedisClient) GetCachedResponse(ctx context.Context, key string) ([]byte
 	}
 
 	if err != nil {
-		handlers.RecordSpanError(span, err)
+		telemetry.RecordSpanError(span, err)
 		return nil, err
 	}
 
@@ -156,19 +153,19 @@ func (r *RedisClient) SetCachedResponse(ctx context.Context, key string, data []
 	span.SetAttributes(
 		attribute.String("redis.key", fullKey),
 		attribute.String("redis.operation", "SET"),
-		attribute.Float64("redis.size_mib", handlers.BytesToMiB(len(data))),
+		attribute.Float64("redis.size_mib", utils.BytesToMiB(len(data))),
 		attribute.Int64("redis.ttl_seconds", int64(ttl.Seconds())),
 	)
 
 	err := r.Client.Set(ctx, fullKey, data, ttl).Err()
 	if err != nil {
-		handlers.RecordSpanError(span, err)
+		telemetry.RecordSpanError(span, err)
 	}
 
 	return err
 }
 
-func (r *RedisClient) InvalidateCache(ctx context.Context, key string) (int64, error) {
+func (r *RedisClient) DeleteKey(ctx context.Context, key string) (int64, error) {
 	ctx, span := tracer.Start(ctx, "Redis.DEL", trace.WithSpanKind(trace.SpanKindClient))
 	defer span.End()
 
@@ -180,7 +177,7 @@ func (r *RedisClient) InvalidateCache(ctx context.Context, key string) (int64, e
 
 	deleted, err := r.Client.Del(ctx, fullKey).Result()
 	if err != nil {
-		handlers.RecordSpanError(span, err)
+		telemetry.RecordSpanError(span, err)
 		return 0, err
 	}
 
@@ -190,49 +187,4 @@ func (r *RedisClient) InvalidateCache(ctx context.Context, key string) (int64, e
 
 func (r *RedisClient) Close() error {
 	return r.Client.Close()
-}
-
-// not idiomatic, change later
-func (redis *RedisClient) DeleteCacheEndpoint(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	ctx, span := tracer.Start(ctx, "Redis.InvalidateCacheEndpoint", trace.WithSpanKind(trace.SpanKindServer))
-	defer span.End()
-
-	successfulInvalidation := false
-
-	defer func() {
-		span.SetAttributes(
-			attribute.Bool("redis.invalidate.success", successfulInvalidation),
-		)
-	}()
-
-	dbName := strings.TrimSpace(r.URL.Query().Get("database"))
-	tableName := strings.TrimSpace(r.URL.Query().Get("table"))
-
-	if dbName == "" || tableName == "" {
-		http.Error(w, "missing database or table parameter", http.StatusBadRequest)
-		return
-	}
-
-	span.SetAttributes(
-		attribute.String("redis.dbName", dbName),
-		attribute.String("redis.tableName", tableName),
-	)
-
-	cacheKey := fmt.Sprintf("csv:%s:%s", dbName, tableName)
-
-	deleted, err := redis.InvalidateCache(ctx, cacheKey)
-	if err != nil {
-		handlers.RecordSpanError(span, fmt.Errorf("failed to invalidate cached table: %w", err))
-		http.Error(w, "failed to invalidate cache", http.StatusInternalServerError)
-		return
-	}
-
-	span.SetAttributes(attribute.Int64("redis.deleted_count", deleted))
-	successfulInvalidation = true
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, `{"deleted_keys": %d}`, deleted)
 }

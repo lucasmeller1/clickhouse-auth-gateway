@@ -19,11 +19,6 @@ func newResource(ctx context.Context) (*resource.Resource, error) {
 	return resource.New(
 		ctx,
 		resource.WithFromEnv(),
-		// resource.WithProcess(),
-		// resource.WithOS(),
-		// resource.WithContainer(),
-		// resource.WithHost(),
-		// resource.WithSchemaURL(semconv.SchemaURL),
 		resource.WithAttributes(
 			semconv.ServiceNameKey.String("Clickhouse API"),
 			semconv.ServiceVersionKey.String("1.0.0"),

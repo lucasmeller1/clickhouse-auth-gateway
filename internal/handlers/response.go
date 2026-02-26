@@ -3,14 +3,10 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"time"
-
-	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/trace"
 )
 
 type ErrorResponse struct {
@@ -51,20 +47,4 @@ func GetRequest(ctx context.Context, url string) ([]byte, error) {
 	}
 
 	return data, nil
-}
-
-func RecordSpanError(span trace.Span, err error) {
-	if err == nil {
-		return
-	}
-	span.RecordError(err)
-	span.SetStatus(codes.Error, err.Error())
-}
-
-func BytesToMiB(length int) float64 {
-	return float64(length) / (1024 * 1024)
-}
-
-func IsCanceled(ctx context.Context, err error) bool {
-	return errors.Is(err, context.Canceled) || ctx.Err() != nil
 }

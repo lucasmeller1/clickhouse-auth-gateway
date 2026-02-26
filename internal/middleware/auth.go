@@ -10,6 +10,7 @@ import (
 	"github.com/lucasmeller1/excel_api/internal/config"
 	"github.com/lucasmeller1/excel_api/internal/handlers"
 	"github.com/lucasmeller1/excel_api/internal/redis"
+	"github.com/lucasmeller1/excel_api/internal/telemetry"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -40,7 +41,7 @@ func AuthPublicMiddleware(cfg config.AuthConfig, redisClient *redis.RedisClient)
 			claims, err := auth.ValidateEntraJWT(ctx, bearerToken, cfg, redisClient)
 
 			if err != nil {
-				handlers.RecordSpanError(span, err)
+				telemetry.RecordSpanError(span, err)
 
 				if errors.Is(err, redis.ErrRedisConnection) {
 					handlers.JsonError(w, http.StatusInternalServerError, "internal server error during authentication")
@@ -82,13 +83,13 @@ func AuthPrivateMiddleware(cfg config.PrivateServerConfig) func(http.Handler) ht
 
 			bearerToken, err := auth.GetBearerToken(r.Header)
 			if err != nil {
-				handlers.RecordSpanError(span, fmt.Errorf("failed to get bearerToken: %w", err))
+				telemetry.RecordSpanError(span, fmt.Errorf("failed to get bearerToken: %w", err))
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
 
 			if bearerToken != cfg.InvalidateCacheToken {
-				handlers.RecordSpanError(span, fmt.Errorf("invalid bearer token"))
+				telemetry.RecordSpanError(span, fmt.Errorf("invalid bearer token"))
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}

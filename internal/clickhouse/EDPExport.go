@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/lucasmeller1/excel_api/internal/handlers"
+	"github.com/lucasmeller1/excel_api/internal/telemetry"
+	"github.com/lucasmeller1/excel_api/internal/utils"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -97,7 +99,7 @@ func (c *HTTPClickhouseClient) ExportCSV(w http.ResponseWriter, r *http.Request)
 
 	statusCode, err := ValidateDatabase(r, c.publicSchemas)
 	if err != nil {
-		handlers.RecordSpanError(span, err)
+		telemetry.RecordSpanError(span, err)
 
 		status = "error"
 		httpStatus = statusCode
@@ -143,7 +145,7 @@ func (c *HTTPClickhouseClient) ExportCSV(w http.ResponseWriter, r *http.Request)
 	})
 
 	if err != nil {
-		if handlers.IsCanceled(ctx, err) {
+		if utils.IsCanceled(ctx, err) {
 			status = "canceled"
 			httpStatus = 499
 			span.SetAttributes(attribute.Bool("client.canceled", true))
@@ -151,7 +153,7 @@ func (c *HTTPClickhouseClient) ExportCSV(w http.ResponseWriter, r *http.Request)
 		}
 
 		status = "error"
-		handlers.RecordSpanError(span, err)
+		telemetry.RecordSpanError(span, err)
 		httpStatus = http.StatusInternalServerError
 
 		if err.Error() == "Table does not exist" {
@@ -179,7 +181,7 @@ func (c *HTTPClickhouseClient) serveGzip(ctx context.Context, w http.ResponseWri
 	ctx, span := tracer.Start(ctx, "HTTP.StreamCSV", trace.WithSpanKind(trace.SpanKindServer))
 	defer span.End()
 
-	sizeMiB := handlers.BytesToMiB(len(data))
+	sizeMiB := utils.BytesToMiB(len(data))
 
 	span.SetAttributes(
 		attribute.Float64("response.size_mib", sizeMiB),
@@ -203,11 +205,11 @@ func (c *HTTPClickhouseClient) serveGzip(ctx context.Context, w http.ResponseWri
 	if clientAcceptsGzip {
 		w.Header().Set("Content-Encoding", "gzip")
 		if _, err := w.Write(data); err != nil {
-			if handlers.IsCanceled(ctx, err) {
+			if utils.IsCanceled(ctx, err) {
 				span.SetAttributes(attribute.Bool("client.canceled", true))
 				return 499
 			}
-			handlers.RecordSpanError(span, err)
+			telemetry.RecordSpanError(span, err)
 			return http.StatusInternalServerError
 		}
 		return http.StatusOK
@@ -215,18 +217,18 @@ func (c *HTTPClickhouseClient) serveGzip(ctx context.Context, w http.ResponseWri
 
 	gzReader, err := gzip.NewReader(bytes.NewReader(data))
 	if err != nil {
-		handlers.RecordSpanError(span, err)
+		telemetry.RecordSpanError(span, err)
 		handlers.JsonError(w, http.StatusInternalServerError, "Decompression error")
 		return http.StatusInternalServerError
 	}
 	defer gzReader.Close()
 
 	if _, err := io.Copy(w, gzReader); err != nil {
-		if handlers.IsCanceled(ctx, err) {
+		if utils.IsCanceled(ctx, err) {
 			span.SetAttributes(attribute.Bool("client.canceled", true))
 			return 499
 		}
-		handlers.RecordSpanError(span, err)
+		telemetry.RecordSpanError(span, err)
 		return http.StatusInternalServerError
 	}
 	return http.StatusOK

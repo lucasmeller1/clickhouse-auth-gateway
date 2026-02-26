@@ -7,8 +7,8 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/lucasmeller1/excel_api/internal/config"
-	"github.com/lucasmeller1/excel_api/internal/handlers"
 	"github.com/lucasmeller1/excel_api/internal/redis"
+	"github.com/lucasmeller1/excel_api/internal/telemetry"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -35,7 +35,7 @@ func GetCachedTIDKeys(ctx context.Context, cfgAuth *config.AuthConfig, redisClie
 	if force {
 		data, err := FetchEntraJWKS(ctx, cfgAuth)
 		if err != nil {
-			handlers.RecordSpanError(span, err)
+			telemetry.RecordSpanError(span, err)
 			return nil, err
 		}
 
@@ -51,7 +51,7 @@ func GetCachedTIDKeys(ctx context.Context, cfgAuth *config.AuthConfig, redisClie
 	})
 
 	if err != nil {
-		handlers.RecordSpanError(span, err)
+		telemetry.RecordSpanError(span, err)
 		return nil, err
 	}
 
@@ -70,26 +70,26 @@ func GetEntraIDPublicKey(ctx context.Context, cfgAuth *config.AuthConfig, redisC
 
 	cachedBytes, err := GetCachedTIDKeys(ctx, cfgAuth, redisClient, force)
 	if err != nil {
-		handlers.RecordSpanError(span, err)
+		telemetry.RecordSpanError(span, err)
 		return EntraIDKey{}, fmt.Errorf("failed to get tid keys: %w", err)
 	}
 
 	var keys EntraIDResponse
 	err = json.Unmarshal(cachedBytes, &keys)
 	if err != nil {
-		handlers.RecordSpanError(span, err)
+		telemetry.RecordSpanError(span, err)
 		return EntraIDKey{}, fmt.Errorf("failed to unmarshal EntraID response: %w", err)
 	}
 
 	key, err := searchEntraIDKey(kid, keys)
 	if err != nil {
-		handlers.RecordSpanError(span, err)
+		telemetry.RecordSpanError(span, err)
 		return EntraIDKey{}, err
 	}
 
 	if !validateEntraIDKey(key) {
 		err := fmt.Errorf("invalid JWKS key")
-		handlers.RecordSpanError(span, err)
+		telemetry.RecordSpanError(span, err)
 		return EntraIDKey{}, fmt.Errorf("invalid JWKS key")
 	}
 
@@ -172,7 +172,7 @@ func ValidateEntraJWT(ctx context.Context, jwtToken string, cfg config.AuthConfi
 			strings.Contains(err.Error(), "key not found")
 
 	if !retryNeeded {
-		handlers.RecordSpanError(span, err)
+		telemetry.RecordSpanError(span, err)
 		return nil, fmt.Errorf("jwt validation failed: %w", err)
 	}
 
@@ -182,7 +182,7 @@ func ValidateEntraJWT(ctx context.Context, jwtToken string, cfg config.AuthConfi
 	// SECOND ATTEMPT – force refresh JWKS
 	token, err = validate(true)
 	if err != nil {
-		handlers.RecordSpanError(span, err)
+		telemetry.RecordSpanError(span, err)
 		return nil, fmt.Errorf("jwt validation failed after JWKS refresh: %w", err)
 	}
 

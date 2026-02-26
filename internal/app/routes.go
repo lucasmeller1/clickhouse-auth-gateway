@@ -12,6 +12,7 @@ import (
 	"github.com/lucasmeller1/excel_api/internal/auth"
 	"github.com/lucasmeller1/excel_api/internal/clickhouse"
 	"github.com/lucasmeller1/excel_api/internal/config"
+	"github.com/lucasmeller1/excel_api/internal/handlers"
 	apimw "github.com/lucasmeller1/excel_api/internal/middleware"
 	"github.com/lucasmeller1/excel_api/internal/redis"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -67,10 +68,12 @@ func GetPrivateRoutes(cfg *config.Config, redis *redis.RedisClient) chi.Router {
 	r.Use(OTelChiRouteMiddleware)
 	r.Use(chimw.Recoverer)
 
+	cacheHandler := handlers.NewCacheHandler(redis)
+
 	r.Group(func(r chi.Router) {
 		r.Use(apimw.AuthPrivateMiddleware(cfg.PrivateServer))
 
-		r.Post("/deleteCache", redis.DeleteCacheEndpoint)
+		r.Post("/deleteCache", cacheHandler.DeleteCacheEndpoint)
 	})
 
 	return r

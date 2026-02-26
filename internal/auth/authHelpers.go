@@ -13,6 +13,7 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lucasmeller1/excel_api/internal/config"
 	"github.com/lucasmeller1/excel_api/internal/handlers"
+	"github.com/lucasmeller1/excel_api/internal/telemetry"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
@@ -208,19 +209,19 @@ func FetchEntraJWKS(ctx context.Context, cfgAuth *config.AuthConfig) ([]byte, er
 
 	configBytes, err := handlers.GetRequest(ctx, openIDURL)
 	if err != nil {
-		handlers.RecordSpanError(span, err)
+		telemetry.RecordSpanError(span, err)
 		return nil, fmt.Errorf("failed to fetch openid configuration: %w", err)
 	}
 
 	var oidc openIDConfig
 	if err := json.Unmarshal(configBytes, &oidc); err != nil {
-		handlers.RecordSpanError(span, err)
+		telemetry.RecordSpanError(span, err)
 		return nil, fmt.Errorf("invalid openid configuration response: %w", err)
 	}
 
 	if oidc.JWKSURI == "" {
 		err := errors.New("jwks_uri missing from openid configuration")
-		handlers.RecordSpanError(span, err)
+		telemetry.RecordSpanError(span, err)
 		return nil, err
 	}
 
@@ -231,7 +232,7 @@ func FetchEntraJWKS(ctx context.Context, cfgAuth *config.AuthConfig) ([]byte, er
 	// 2. Fetch JWKS
 	dataBytes, err := handlers.GetRequest(ctx, oidc.JWKSURI)
 	if err != nil {
-		handlers.RecordSpanError(span, err)
+		telemetry.RecordSpanError(span, err)
 		return nil, fmt.Errorf("failed to fetch jwks: %w", err)
 	}
 

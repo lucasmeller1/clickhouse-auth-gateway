@@ -13,6 +13,8 @@ import (
 	"github.com/lucasmeller1/excel_api/internal/auth"
 	"github.com/lucasmeller1/excel_api/internal/config"
 	"github.com/lucasmeller1/excel_api/internal/handlers"
+	"github.com/lucasmeller1/excel_api/internal/telemetry"
+	"github.com/lucasmeller1/excel_api/internal/utils"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -37,7 +39,7 @@ func (c *HTTPClickhouseClient) GetUserTables(w http.ResponseWriter, r *http.Requ
 	claims, ok := auth.ClaimsFromContext(ctx)
 	if !ok {
 		err := errors.New("failed to get authorization claims from context")
-		handlers.RecordSpanError(span, err)
+		telemetry.RecordSpanError(span, err)
 		status = "error"
 		httpStatus = http.StatusInternalServerError
 
@@ -62,7 +64,7 @@ func (c *HTTPClickhouseClient) GetUserTables(w http.ResponseWriter, r *http.Requ
 
 	if len(authorizedSet) == 0 {
 		err := errors.New("no authorized databases available")
-		handlers.RecordSpanError(span, err)
+		telemetry.RecordSpanError(span, err)
 		status = "error"
 		httpStatus = http.StatusForbidden
 
@@ -103,14 +105,14 @@ func (c *HTTPClickhouseClient) GetUserTables(w http.ResponseWriter, r *http.Requ
 
 	resp, err := c.QueryCSV(ctx, sql)
 	if err != nil {
-		if handlers.IsCanceled(ctx, err) {
+		if utils.IsCanceled(ctx, err) {
 			status = "canceled"
 			httpStatus = 499
 			span.SetAttributes(attribute.Bool("client.canceled", true))
 			return
 		}
 
-		handlers.RecordSpanError(span, err)
+		telemetry.RecordSpanError(span, err)
 		status = "error"
 		httpStatus = http.StatusInternalServerError
 
@@ -130,13 +132,13 @@ func (c *HTTPClickhouseClient) GetUserTables(w http.ResponseWriter, r *http.Requ
 		w.Header().Set("Content-Encoding", "gzip")
 		n, err := io.Copy(w, resp.Body)
 		if err != nil {
-			if handlers.IsCanceled(ctx, err) {
+			if utils.IsCanceled(ctx, err) {
 				status = "canceled"
 				httpStatus = 499
 				span.SetAttributes(attribute.Bool("client.canceled", true))
 				return
 			}
-			handlers.RecordSpanError(span, err)
+			telemetry.RecordSpanError(span, err)
 			status = "error"
 			httpStatus = http.StatusInternalServerError
 			span.SetAttributes(
@@ -148,7 +150,7 @@ func (c *HTTPClickhouseClient) GetUserTables(w http.ResponseWriter, r *http.Requ
 	} else if resp.Header.Get("Content-Encoding") == "gzip" {
 		gz, err := gzip.NewReader(resp.Body)
 		if err != nil {
-			handlers.RecordSpanError(span, err)
+			telemetry.RecordSpanError(span, err)
 			status = "error"
 			httpStatus = http.StatusInternalServerError
 			span.SetAttributes(
@@ -160,13 +162,13 @@ func (c *HTTPClickhouseClient) GetUserTables(w http.ResponseWriter, r *http.Requ
 
 		n, err := io.Copy(w, gz)
 		if err != nil {
-			if handlers.IsCanceled(ctx, err) {
+			if utils.IsCanceled(ctx, err) {
 				status = "canceled"
 				httpStatus = 499
 				span.SetAttributes(attribute.Bool("client.canceled", true))
 				return
 			}
-			handlers.RecordSpanError(span, err)
+			telemetry.RecordSpanError(span, err)
 			status = "error"
 			httpStatus = http.StatusInternalServerError
 			span.SetAttributes(
@@ -178,14 +180,14 @@ func (c *HTTPClickhouseClient) GetUserTables(w http.ResponseWriter, r *http.Requ
 	} else {
 		n, err := io.Copy(w, resp.Body)
 		if err != nil {
-			if handlers.IsCanceled(ctx, err) {
+			if utils.IsCanceled(ctx, err) {
 				status = "canceled"
 				httpStatus = 499
 				span.SetAttributes(attribute.Bool("client.canceled", true))
 				return
 			}
 
-			handlers.RecordSpanError(span, err)
+			telemetry.RecordSpanError(span, err)
 			status = "error"
 			httpStatus = http.StatusInternalServerError
 			span.SetAttributes(
@@ -198,6 +200,6 @@ func (c *HTTPClickhouseClient) GetUserTables(w http.ResponseWriter, r *http.Requ
 
 	span.SetAttributes(
 		attribute.Float64("stream.duration_ms", float64(time.Since(streamStart).Milliseconds())),
-		attribute.Float64("response.size_mib", handlers.BytesToMiB(responseSize)),
+		attribute.Float64("response.size_mib", utils.BytesToMiB(responseSize)),
 	)
 }
