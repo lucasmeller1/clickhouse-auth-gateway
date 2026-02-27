@@ -45,28 +45,28 @@ func LoadSchemaConfig(path string) (*SchemaConfig, error) {
 	}
 	defer file.Close()
 
-	schemaToGUID := make(map[string]string)
-
-	if err := json.NewDecoder(file).Decode(&schemaToGUID); err != nil {
+	var schemasJSON struct {
+		SchemasGUID   map[string]string `json:"schemas_guid"`
+		PublicSchemas []string          `json:"public_schemas"`
+	}
+	if err := json.NewDecoder(file).Decode(&schemasJSON); err != nil {
 		return nil, fmt.Errorf("decode schema config: %w", err)
 	}
 
-	guidToSchema := make(map[string]string, len(schemaToGUID))
-
-	for schema, guid := range schemaToGUID {
+	guidToSchema := make(map[string]string, len(schemasJSON.SchemasGUID))
+	for schema, guid := range schemasJSON.SchemasGUID {
 		if _, err := uuid.Parse(guid); err != nil {
 			return nil, fmt.Errorf("invalid GUID %s", guid)
 		}
-
 		if _, exists := guidToSchema[guid]; exists {
 			return nil, fmt.Errorf("duplicate GUID detected: %s", guid)
 		}
-
 		guidToSchema[guid] = schema
 	}
 
 	return &SchemaConfig{
-		SchemaToGUID: schemaToGUID,
-		GUIDToSchema: guidToSchema,
+		SchemaToGUID:  schemasJSON.SchemasGUID,
+		GUIDToSchema:  guidToSchema,
+		PublicSchemas: schemasJSON.PublicSchemas,
 	}, nil
 }

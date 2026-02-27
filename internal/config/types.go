@@ -5,8 +5,9 @@ import (
 )
 
 type SchemaConfig struct {
-	SchemaToGUID map[string]string
-	GUIDToSchema map[string]string
+	SchemaToGUID  map[string]string
+	GUIDToSchema  map[string]string
+	PublicSchemas []string
 }
 
 type AuthConfig struct {

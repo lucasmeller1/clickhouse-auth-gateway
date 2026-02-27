@@ -21,6 +21,12 @@ import (
 	"time"
 )
 
+var (
+	ErrTableNotFound    = errors.New("table does not exist")
+	ErrDatabaseNotFound = errors.New("database does not exist")
+	ErrClickhouse       = errors.New("internal clickhouse error")
+)
+
 type HTTPClickhouseClient struct {
 	baseURL          string
 	user             string
@@ -138,8 +144,7 @@ func (c *HTTPClickhouseClient) QueryCSV(ctx context.Context, sql string) (*http.
 		}
 
 		errorText := strings.TrimSpace(string(body))
-		cleanErr := normalizeClickhouseError(errorText)
-		err = errors.New(cleanErr)
+		err = normalizeClickhouseError(errorText)
 		telemetry.RecordSpanError(span, err)
 		return nil, err
 	}
@@ -151,16 +156,14 @@ func (c *HTTPClickhouseClient) QueryCSV(ctx context.Context, sql string) (*http.
 	return resp, nil
 }
 
-func normalizeClickhouseError(s string) string {
+func normalizeClickhouseError(s string) error {
 	if strings.Contains(s, "UNKNOWN_TABLE") {
-		return "Table does not exist"
+		return ErrTableNotFound
 	}
-
 	if strings.Contains(s, "UNKNOWN_DATABASE") {
-		return "Database does not exist"
+		return ErrDatabaseNotFound
 	}
-
-	return "internal server error"
+	return ErrClickhouse
 }
 
 func (c *HTTPClickhouseClient) ValidateDatabase(r *http.Request, publicSchemas []string) (int, error) {

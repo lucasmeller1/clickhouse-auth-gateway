@@ -4,7 +4,13 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"strings"
+	"time"
+
 	"github.com/lucasmeller1/excel_api/internal/handlers"
 	"github.com/lucasmeller1/excel_api/internal/telemetry"
 	"github.com/lucasmeller1/excel_api/internal/utils"
@@ -12,10 +18,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
-	"io"
-	"net/http"
-	"strings"
-	"time"
 )
 
 const (
@@ -155,7 +157,7 @@ func (c *HTTPClickhouseClient) ExportCSV(w http.ResponseWriter, r *http.Request)
 		telemetry.RecordSpanError(span, err)
 		httpStatus = http.StatusInternalServerError
 
-		if err.Error() == "Table does not exist" {
+		if errors.Is(err, ErrTableNotFound) {
 			httpStatus = http.StatusBadRequest
 		}
 

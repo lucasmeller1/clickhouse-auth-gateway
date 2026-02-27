@@ -77,7 +77,7 @@ func (c *HTTPClickhouseClient) GetUserTables(w http.ResponseWriter, r *http.Requ
 
 	var schemas []string
 	for s := range authorizedSet {
-		schemas = append(schemas, fmt.Sprintf("'%s'", s))
+		schemas = append(schemas, utils.QuoteIdentifier(s))
 	}
 	inClause := strings.Join(schemas, ",")
 

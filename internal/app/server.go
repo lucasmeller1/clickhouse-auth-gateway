@@ -81,7 +81,7 @@ func (svr *customServer) Run() {
 
 	// --- Start Internal Server ---
 	wg.Go(func() {
-		slog.Info(fmt.Sprintf("private API started on port %s\n", svr.PublicServer.Addr))
+		slog.Info(fmt.Sprintf("private API started on port %s\n", svr.PrivateServer.Addr))
 		if err := svr.PrivateServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("private server error", "error", err)
 			stop()

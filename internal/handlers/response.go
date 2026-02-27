@@ -37,7 +37,7 @@ func GetRequest(ctx context.Context, url string) ([]byte, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("unexpected status code %d: %w", resp.StatusCode, err)
+		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
 
 	limitReader := io.LimitReader(resp.Body, 10*1024*1024)

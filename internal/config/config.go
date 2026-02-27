@@ -24,7 +24,7 @@ func Load() *Config {
 	audience := mustEnv("AUDIENCE_JWT")
 	debug := mustEnv("DEBUG")
 
-	publicSchemas := []string{"Atualizacoes", "Consultas"}
+	publicSchemas := schemaConfig.PublicSchemas
 	userClickhouse := mustEnv("CLICKHOUSE_USER")
 	passwordClickhouse := mustEnv("CLICKHOUSE_PASSWORD")
 	schemaClickhouse := mustEnv("CLICKHOUSE_SCHEMA")
@@ -64,7 +64,7 @@ func Load() *Config {
 			MaxRequestsIntervalTablesEDP: time.Minute,
 
 			// time to close all (both server, redis connection and otel)
-			ShutdownTimeout: 5 * time.Second,
+			ShutdownTimeout: 15 * time.Second,
 		},
 
 		// related to clickhouse conn, http client and cache
