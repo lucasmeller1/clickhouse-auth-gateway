@@ -1,11 +1,11 @@
 build:
-		CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ./prod/excel_api
+		docker build -t excel_api:latest .
 
 up:
-		docker compose -f ./prod/docker-compose.yml up -d --build
+		docker compose -f docker-compose.yml up -d
 
 down:
-		docker compose -f ./prod/docker-compose.yml down -v
+		docker compose -f docker-compose.yml down -v
 
 auto: down up
 

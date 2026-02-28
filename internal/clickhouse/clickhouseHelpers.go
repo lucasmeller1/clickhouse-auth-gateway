@@ -6,6 +6,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"slices"
+	"strings"
+	"time"
+
 	"github.com/lucasmeller1/excel_api/internal/auth"
 	"github.com/lucasmeller1/excel_api/internal/config"
 	"github.com/lucasmeller1/excel_api/internal/queue"
@@ -14,11 +20,6 @@ import (
 	"github.com/lucasmeller1/excel_api/internal/utils"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
-	"io"
-	"net/http"
-	"slices"
-	"strings"
-	"time"
 )
 
 var (

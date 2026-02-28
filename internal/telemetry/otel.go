@@ -20,7 +20,7 @@ func newResource(ctx context.Context) (*resource.Resource, error) {
 		ctx,
 		resource.WithFromEnv(),
 		resource.WithAttributes(
-			semconv.ServiceNameKey.String("Clickhouse API"),
+			semconv.ServiceNameKey.String("Clickhouse Gateway API"),
 			semconv.ServiceVersionKey.String("1.0.0"),
 		),
 	)

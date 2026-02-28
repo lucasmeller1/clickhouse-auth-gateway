@@ -1,0 +1,155 @@
+services:
+  api:
+    image: excel_api:latest
+    container_name: excel_api
+    ports:
+      - "8080:8080"
+    environment:
+      TENANT_ID: ${TENANT_ID}
+      AUDIENCE_JWT: ${AUDIENCE_JWT}
+      SERVER_PORT: 8080
+      DEBUG: "0"
+
+      CLICKHOUSE_HOSTNAME: ${CLICKHOUSE_HOSTNAME}
+      CLICKHOUSE_PORT: ${CLICKHOUSE_PORT}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_SCHEMA: ${CLICKHOUSE_SCHEMA}
+      QUEUE_SIZE_LIMITER: ${QUEUE_SIZE_LIMITER}
+
+      REDIS_HOSTNAME: ${REDIS_HOSTNAME}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_DB: ${REDIS_DB}
+
+      INVALIDATE_CACHE_TOKEN: ${INVALIDATE_CACHE_TOKEN}
+
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_INSECURE: "true"
+    depends_on:
+      - clickhousedb
+      - redis
+      - otel-collector
+    restart: unless-stopped
+    networks:
+      - test_network
+    volumes:
+      - ./schema_guids.json:/schema_guids.json:ro
+
+  # nginx:
+  #   image: nginx:1.27
+  #   ports:
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf
+  #     - ./certs:/etc/nginx/certs
+  #   depends_on:
+  #     - api
+  #   networks:
+  #     - test_network
+
+
+  clickhousedb:
+    image: clickhousedb
+    container_name: clickhousedb
+    hostname: clickhousedb
+    networks:
+      - test_network
+    ports:
+      - "8123:8123"
+    volumes:
+      - ./volumes/clickhouse_db:/var/lib/clickhouse 
+    environment:
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_SCHEMA: ${CLICKHOUSE_SCHEMA}
+    restart: unless-stopped
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared_tunnel
+    restart: unless-stopped
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    networks:
+      - test_network
+    command: tunnel --no-autoupdate run
+    depends_on:
+      - api
+
+  redis:
+    image: redis:7
+    container_name: redis_local
+    hostname: redis
+    networks:
+      - test_network
+    command: >
+      sh -c "redis-server --requirepass $REDIS_PASSWORD"
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    volumes:
+      - ./volumes/redis_data:/data
+    restart: unless-stopped
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: otel-collector
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    depends_on:
+      - tempo
+    networks:
+      - test_network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./volumes/prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - test_network
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-remote-write-receiver'
+
+  tempo:
+    image: grafana/tempo:2.9.0
+    container_name: tempo
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    user: root
+    volumes:
+      - ./tempo.yaml:/etc/tempo.yaml
+      - ./volumes/tempo_data:/var/tempo
+    ports:
+      - "3200:3200"
+    networks:
+      - test_network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./volumes/grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+      - tempo
+    networks:
+      - test_network
+
+networks:
+  test_network:
+    external: true
+
+
