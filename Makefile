@@ -1,12 +1,19 @@
+COMPOSE = docker compose -f docker-compose.yml
+
+.PHONY: build up down down-clean restart deploy
+
 build:
-		docker build -t excel_api:latest .
+		docker build -t clickhouse_gateway_api:latest .
 
 up:
-		docker compose -f docker-compose.yml up -d
+		$(COMPOSE) up -d
 
 down:
-		docker compose -f docker-compose.yml down -v
+		$(COMPOSE) down
 
-auto: down up
+down-clean:
+		$(COMPOSE) down -v
 
-all: build auto
+restart: down up
+
+deploy: build restart

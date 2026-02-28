@@ -17,7 +17,7 @@ func Load() *Config {
 		os.Exit(1)
 	}
 
-	addrPort := ":" + mustEnv("SERVER_PORT")
+	addrPort := ":8080"
 
 	tid := mustEnv("TENANT_ID")
 	issuer := fmt.Sprintf("https://login.microsoftonline.com/%s/v2.0", tid)
