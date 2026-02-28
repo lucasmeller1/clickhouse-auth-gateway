@@ -1,4 +1,4 @@
-COMPOSE = docker compose -f docker-compose.yml
+COMPOSE = docker compose -f ./deploy/docker-compose.yml
 
 .PHONY: build up down down-clean restart deploy
 

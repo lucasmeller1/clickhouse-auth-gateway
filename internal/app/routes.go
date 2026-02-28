@@ -52,7 +52,7 @@ func getPublicRoutes(cfg *config.Config, ch *clickhouse.HTTPClickhouseClient, re
 		r.Use(apimw.AuthPublicMiddleware(cfg.Auth, redisClient))
 
 		r.Group(func(r chi.Router) {
-			r.Use(customRateLimiter(redisCounter, cfg.Server.MaxRequestsExportEDP, cfg.Server.MaxRequestsIntervalExportEDP, cfg.Endpoints.Export))
+			// r.Use(customRateLimiter(redisCounter, cfg.Server.MaxRequestsExportEDP, cfg.Server.MaxRequestsIntervalExportEDP, cfg.Endpoints.Export))
 			r.Get(exportEDP, ch.ExportCSV)
 		})
 

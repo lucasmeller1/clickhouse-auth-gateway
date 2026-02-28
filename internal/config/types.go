@@ -14,7 +14,6 @@ type AuthConfig struct {
 	TenantID string
 	Issuer   string
 	Audience string
-	Debug    string
 }
 
 type ServerConfig struct {

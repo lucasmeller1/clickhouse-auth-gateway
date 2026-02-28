@@ -13,7 +13,6 @@ services:
       <<: *clickhouse-env
       TENANT_ID: ${TENANT_ID}
       AUDIENCE_JWT: ${AUDIENCE_JWT}
-      DEBUG: "0"
 
       CLICKHOUSE_HOSTNAME: clickhousedb
       CLICKHOUSE_PORT: 8123
@@ -39,7 +38,7 @@ services:
     networks:
       - test_network
     volumes:
-      - ./schema_guids.json:/schema_guids.json:ro
+      - ../schema_guids.json:/schema_guids.json:ro
 
   clickhousedb:
     image: clickhousedb

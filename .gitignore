@@ -1,5 +1,2 @@
-/prod/volumes/
+volumes/
 .env
-prod/.env
-prod/volumes
-volumes

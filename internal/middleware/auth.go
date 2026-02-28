@@ -63,10 +63,6 @@ func AuthPublicMiddleware(cfg config.AuthConfig, redisClient *redis.RedisClient)
 				labeler.Add(attribute.String("user.oid", claims.OID))
 			}
 
-			// if cfg.Debug == "1" {
-			// 	log.Println(bearerToken)
-			// }
-
 			ctx = context.WithValue(ctx, auth.ClaimsContextKey, claims)
 
 			next.ServeHTTP(w, r.WithContext(ctx))

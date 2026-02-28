@@ -22,7 +22,6 @@ func Load() *Config {
 	tid := mustEnv("TENANT_ID")
 	issuer := fmt.Sprintf("https://login.microsoftonline.com/%s/v2.0", tid)
 	audience := mustEnv("AUDIENCE_JWT")
-	debug := mustEnv("DEBUG")
 
 	publicSchemas := schemaConfig.PublicSchemas
 	userClickhouse := mustEnv("CLICKHOUSE_USER")
@@ -45,7 +44,6 @@ func Load() *Config {
 			TenantID: tid,
 			Issuer:   issuer,
 			Audience: audience,
-			Debug:    debug,
 		},
 
 		// related to golang public server
