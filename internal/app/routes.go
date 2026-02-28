@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/httplog/v3"
 	"github.com/go-chi/httprate"
 	"github.com/lucasmeller1/excel_api/internal/auth"
 	"github.com/lucasmeller1/excel_api/internal/clickhouse"
@@ -34,11 +35,10 @@ func getPublicRoutes(cfg *config.Config, ch *clickhouse.HTTPClickhouseClient, re
 	tablesEDP := fmt.Sprintf("/v%s/%s", cfg.Endpoints.Version, cfg.Endpoints.Tables)
 	healthEDP := "/healthz"
 
+	r.Use(httpLogMiddleware())
 	r.Use(OTelChiRouteMiddleware)
-	r.Use(chimw.Recoverer)
 	r.Use(chimw.RequestID)
 	r.Use(chimw.RealIP)
-	r.Use(chimw.Logger)
 
 	// unauthenticated
 	r.Group(func(r chi.Router) {
@@ -67,8 +67,9 @@ func getPublicRoutes(cfg *config.Config, ch *clickhouse.HTTPClickhouseClient, re
 
 func GetPrivateRoutes(cfg *config.Config, redis *redis.RedisClient) chi.Router {
 	r := chi.NewRouter()
+
+	r.Use(httpLogMiddleware())
 	r.Use(OTelChiRouteMiddleware)
-	r.Use(chimw.Recoverer)
 
 	cacheHandler := handlers.NewCacheHandler(redis)
 
@@ -111,5 +112,17 @@ func OTelChiRouteMiddleware(next http.Handler) http.Handler {
 				span.SetAttributes(attribute.String("http.route", routePattern))
 			}
 		}
+	})
+}
+
+func newHTTPLogger() *slog.Logger {
+	return slog.Default().With(slog.String("service", "Clickhouse Gateway API"))
+}
+
+func httpLogMiddleware() func(http.Handler) http.Handler {
+	return httplog.RequestLogger(newHTTPLogger(), &httplog.Options{
+		Level:         slog.LevelInfo,
+		Schema:        httplog.SchemaOTEL,
+		RecoverPanics: true,
 	})
 }

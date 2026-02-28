@@ -21,6 +21,10 @@ exporters:
     endpoint: "tempo:4317"
     tls:
       insecure: true
+  otlphttp/loki:
+    endpoint: "http://loki:3100/otlp"
+    tls:
+      insecure: true
 
 service:
   telemetry:
@@ -40,4 +44,8 @@ service:
       receivers: [otlp]
       processors: [memory_limiter,batch]
       exporters: [prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/loki]
 

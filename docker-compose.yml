@@ -99,6 +99,7 @@ services:
       - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
     depends_on:
       - tempo
+      - loki
     networks:
       - test_network
     restart: unless-stopped
@@ -144,9 +145,22 @@ services:
       GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
       - ./volumes/grafana_data:/var/lib/grafana
+      - ./datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
     depends_on:
       - prometheus
       - tempo
+    networks:
+      - test_network
+
+  loki:
+    image: grafana/loki:3.6.0
+    container_name: loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    restart: unless-stopped
+    volumes:
+      - ./volumes/loki_data:/loki
     networks:
       - test_network
 
