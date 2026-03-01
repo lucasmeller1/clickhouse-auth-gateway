@@ -68,6 +68,12 @@ func LoadSchemaConfig(path string) (*SchemaConfig, error) {
 		guidToSchema[guid] = schema
 	}
 
+	for _, schema := range schemasJSON.PublicSchemas {
+		if !utils.IsValidIdentifier(schema) {
+			return nil, fmt.Errorf("invalid schema name %q in config: must match [a-zA-Z0-9_]", schema)
+		}
+	}
+
 	return &SchemaConfig{
 		SchemaToGUID:  schemasJSON.SchemasGUID,
 		GUIDToSchema:  guidToSchema,

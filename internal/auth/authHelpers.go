@@ -225,6 +225,12 @@ func FetchEntraJWKS(ctx context.Context, cfgAuth *config.AuthConfig) ([]byte, er
 		return nil, err
 	}
 
+	if !strings.HasPrefix(oidc.JWKSURI, fmt.Sprintf("https://login.microsoftonline.com/%s", cfgAuth.TenantID)) {
+		err := errors.New("jwks_uri is not valid")
+		telemetry.RecordSpanError(span, err)
+		return nil, err
+	}
+
 	span.SetAttributes(
 		attribute.String("jwks.uri", oidc.JWKSURI),
 	)
