@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/google/uuid"
+	"github.com/lucasmeller1/excel_api/internal/utils"
 )
 
 func mustEnv(name string) string {
@@ -57,6 +58,9 @@ func LoadSchemaConfig(path string) (*SchemaConfig, error) {
 	for schema, guid := range schemasJSON.SchemasGUID {
 		if _, err := uuid.Parse(guid); err != nil {
 			return nil, fmt.Errorf("invalid GUID %s", guid)
+		}
+		if !utils.IsValidIdentifier(schema) {
+			return nil, fmt.Errorf("invalid schema name %q in config: must match [a-zA-Z0-9_]", schema)
 		}
 		if _, exists := guidToSchema[guid]; exists {
 			return nil, fmt.Errorf("duplicate GUID detected: %s", guid)

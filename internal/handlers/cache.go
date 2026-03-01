@@ -7,6 +7,7 @@ import (
 
 	"github.com/lucasmeller1/excel_api/internal/redis"
 	"github.com/lucasmeller1/excel_api/internal/telemetry"
+	"github.com/lucasmeller1/excel_api/internal/utils"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -43,8 +44,8 @@ func (h *CacheHandler) DeleteCacheEndpoint(w http.ResponseWriter, r *http.Reques
 	dbName := strings.TrimSpace(r.URL.Query().Get("database"))
 	tableName := strings.TrimSpace(r.URL.Query().Get("table"))
 
-	if dbName == "" || tableName == "" {
-		http.Error(w, "missing database or table parameter", http.StatusBadRequest)
+	if err := utils.CheckDatabaseTable(dbName, tableName); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 

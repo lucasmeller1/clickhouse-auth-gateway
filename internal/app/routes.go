@@ -35,10 +35,10 @@ func getPublicRoutes(cfg *config.Config, ch *clickhouse.HTTPClickhouseClient, re
 	tablesEDP := fmt.Sprintf("/v%s/%s", cfg.Endpoints.Version, cfg.Endpoints.Tables)
 	healthEDP := "/healthz"
 
-	r.Use(httpLogMiddleware())
-	r.Use(OTelChiRouteMiddleware)
 	r.Use(chimw.RequestID)
 	r.Use(chimw.RealIP)
+	r.Use(httpLogMiddleware())
+	r.Use(OTelChiRouteMiddleware)
 
 	// unauthenticated
 	r.Group(func(r chi.Router) {
@@ -52,7 +52,7 @@ func getPublicRoutes(cfg *config.Config, ch *clickhouse.HTTPClickhouseClient, re
 		r.Use(apimw.AuthPublicMiddleware(cfg.Auth, redisClient))
 
 		r.Group(func(r chi.Router) {
-			// r.Use(customRateLimiter(redisCounter, cfg.Server.MaxRequestsExportEDP, cfg.Server.MaxRequestsIntervalExportEDP, cfg.Endpoints.Export))
+			r.Use(customRateLimiter(redisCounter, cfg.Server.MaxRequestsExportEDP, cfg.Server.MaxRequestsIntervalExportEDP, cfg.Endpoints.Export))
 			r.Get(exportEDP, ch.ExportCSV)
 		})
 

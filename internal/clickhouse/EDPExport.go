@@ -88,6 +88,7 @@ func (c *HTTPClickhouseClient) ExportCSV(w http.ResponseWriter, r *http.Request)
 			attribute.String("cache_status", cacheStatus),
 			attribute.String("status", status),
 			attribute.Int("http.status_code", httpStatus),
+			attribute.Bool("gzip_request", strings.Contains(r.Header.Get("Accept-Encoding"), "gzip")),
 		}
 
 		span.SetAttributes(

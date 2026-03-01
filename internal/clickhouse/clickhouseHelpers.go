@@ -176,14 +176,8 @@ func (c *HTTPClickhouseClient) ValidateDatabase(r *http.Request, publicSchemas [
 	database := strings.TrimSpace(r.URL.Query().Get("database"))
 	table := strings.TrimSpace(r.URL.Query().Get("table"))
 
-	// because tables can be created at any time and will not be validated like the schemas,
-	// there will be just a simple check for empty tables
-	if database == "" || table == "" {
-		return http.StatusBadRequest, errors.New("missing database or table")
-	}
-
-	if !(utils.IsValidIdentifier(database) && utils.IsValidIdentifier(table)) {
-		return http.StatusBadRequest, errors.New("database or table not valid")
+	if err := utils.CheckDatabaseTable(database, table); err != nil {
+		return http.StatusBadRequest, err
 	}
 
 	// check if requested schema is from the public ones

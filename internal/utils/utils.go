@@ -26,3 +26,16 @@ func QuoteIdentifier(identifier string) string {
 	escaped := strings.ReplaceAll(identifier, `"`, `""`)
 	return fmt.Sprintf(`"%s"`, escaped)
 }
+
+func CheckDatabaseTable(database, table string) error {
+	if database == "" || table == "" {
+		return errors.New("missing database or table")
+	}
+	if !IsValidIdentifier(database) {
+		return errors.New("invalid database name")
+	}
+	if !IsValidIdentifier(table) {
+		return errors.New("invalid table name")
+	}
+	return nil
+}
