@@ -183,11 +183,12 @@ Export requests go through two layers of protection before hitting ClickHouse.
 
 | Command | Description |
 |---------|-------------|
+| `make clickhouse` | Build Clickhouse image |
 | `make build` | Build the Docker image |
 | `make up` | Start all services |
 | `make down` | Stop all services |
 | `make down-clean` | Stop all services and remove volumes |
 | `make restart` | Restart all services |
-| `make deploy` | Build image and restart all services |
+| `make deploy` | Build API and Clickhouse image, restart all services |
 
 ---
