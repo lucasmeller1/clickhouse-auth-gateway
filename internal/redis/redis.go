@@ -10,9 +10,9 @@ import (
 
 	"github.com/go-chi/httprate"
 	httprateredis "github.com/go-chi/httprate-redis"
-	"github.com/lucasmeller1/excel_api/internal/config"
-	"github.com/lucasmeller1/excel_api/internal/telemetry"
-	"github.com/lucasmeller1/excel_api/internal/utils"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/config"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/telemetry"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/utils"
 	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -20,7 +20,7 @@ import (
 	"golang.org/x/sync/singleflight"
 )
 
-const name = "github.com/lucasmeller1/excel_api/internal/redis"
+const name = "github.com/lucasmeller1/clickhouse-auth-gateway/internal/redis"
 
 var (
 	tracer             = otel.Tracer(name)

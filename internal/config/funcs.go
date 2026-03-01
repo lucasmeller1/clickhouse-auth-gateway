@@ -8,7 +8,7 @@ import (
 	"strconv"
 
 	"github.com/google/uuid"
-	"github.com/lucasmeller1/excel_api/internal/utils"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/utils"
 )
 
 func mustEnv(name string) string {

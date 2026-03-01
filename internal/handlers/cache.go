@@ -5,15 +5,15 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/lucasmeller1/excel_api/internal/redis"
-	"github.com/lucasmeller1/excel_api/internal/telemetry"
-	"github.com/lucasmeller1/excel_api/internal/utils"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/redis"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/telemetry"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/utils"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
 
-const name = "github.com/lucasmeller1/excel_api/internal/handlers"
+const name = "github.com/lucasmeller1/clickhouse-auth-gateway/internal/handlers"
 
 var (
 	tracer = otel.Tracer(name)

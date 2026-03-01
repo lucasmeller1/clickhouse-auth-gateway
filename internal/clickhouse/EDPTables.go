@@ -10,10 +10,10 @@ import (
 
 	"net/http"
 
-	"github.com/lucasmeller1/excel_api/internal/auth"
-	"github.com/lucasmeller1/excel_api/internal/handlers"
-	"github.com/lucasmeller1/excel_api/internal/telemetry"
-	"github.com/lucasmeller1/excel_api/internal/utils"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/auth"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/handlers"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/telemetry"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/utils"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )

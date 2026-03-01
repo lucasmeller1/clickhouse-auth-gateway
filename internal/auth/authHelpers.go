@@ -11,9 +11,9 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/lestrrat-go/jwx/v2/jwk"
-	"github.com/lucasmeller1/excel_api/internal/config"
-	"github.com/lucasmeller1/excel_api/internal/handlers"
-	"github.com/lucasmeller1/excel_api/internal/telemetry"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/config"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/handlers"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/telemetry"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 

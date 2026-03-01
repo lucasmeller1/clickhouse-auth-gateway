@@ -1,4 +1,4 @@
-module github.com/lucasmeller1/excel_api
+module github.com/lucasmeller1/clickhouse-auth-gateway
 
 go 1.25.5
 

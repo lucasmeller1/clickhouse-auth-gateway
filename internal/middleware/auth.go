@@ -6,17 +6,17 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/lucasmeller1/excel_api/internal/auth"
-	"github.com/lucasmeller1/excel_api/internal/config"
-	"github.com/lucasmeller1/excel_api/internal/handlers"
-	"github.com/lucasmeller1/excel_api/internal/redis"
-	"github.com/lucasmeller1/excel_api/internal/telemetry"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/auth"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/config"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/handlers"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/redis"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/telemetry"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 )
 
-const name = "github.com/lucasmeller1/excel_api/internal/middleware"
+const name = "github.com/lucasmeller1/clickhouse-auth-gateway/internal/middleware"
 
 var (
 	tracer = otel.Tracer(name)
@@ -53,6 +53,7 @@ func AuthPublicMiddleware(cfg config.AuthConfig, redisClient *redis.RedisClient)
 			}
 
 			if claims.OID == "" {
+				telemetry.RecordSpanError(span, fmt.Errorf("claims oid is empty"))
 				handlers.JsonError(w, http.StatusUnauthorized, "missing oid claim")
 				return
 			}

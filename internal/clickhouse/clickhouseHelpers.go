@@ -12,12 +12,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lucasmeller1/excel_api/internal/auth"
-	"github.com/lucasmeller1/excel_api/internal/config"
-	"github.com/lucasmeller1/excel_api/internal/queue"
-	"github.com/lucasmeller1/excel_api/internal/redis"
-	"github.com/lucasmeller1/excel_api/internal/telemetry"
-	"github.com/lucasmeller1/excel_api/internal/utils"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/auth"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/config"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/queue"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/redis"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/telemetry"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/utils"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )

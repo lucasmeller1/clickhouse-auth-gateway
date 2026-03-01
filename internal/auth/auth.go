@@ -6,9 +6,9 @@ import (
 	"fmt"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/lucasmeller1/excel_api/internal/config"
-	"github.com/lucasmeller1/excel_api/internal/redis"
-	"github.com/lucasmeller1/excel_api/internal/telemetry"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/config"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/redis"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/telemetry"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-var tracer = otel.Tracer("github.com/lucasmeller1/excel_api/internal/auth")
+var tracer = otel.Tracer("github.com/lucasmeller1/clickhouse-auth-gateway/internal/auth")
 
 func GetCachedTIDKeys(ctx context.Context, cfgAuth *config.AuthConfig, redisClient *redis.RedisClient, force bool) ([]byte, error) {
 	ctx, span := tracer.Start(ctx, "Auth.GetCachedTIDKeys", trace.WithSpanKind(trace.SpanKindInternal))

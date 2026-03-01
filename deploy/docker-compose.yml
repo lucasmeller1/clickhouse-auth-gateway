@@ -4,9 +4,9 @@ x-clickhouse-env: &clickhouse-env
   CLICKHOUSE_SCHEMA: ${CLICKHOUSE_SCHEMA}
 
 services:
-  clickhouse_gateway_api:
-    image: clickhouse_gateway_api:latest
-    container_name: clickhouse_gateway_api
+  clickhouse_auth_gateway:
+    image: clickhouse_auth_gateway:latest
+    container_name: clickhouse_auth_gateway
     ports:
       - "8080:8080"
     environment:
@@ -69,7 +69,7 @@ services:
       - test_network
     command: tunnel --no-autoupdate run
     depends_on:
-      - clickhouse_gateway_api
+      - clickhouse_auth_gateway
 
   redis:
     image: redis:7

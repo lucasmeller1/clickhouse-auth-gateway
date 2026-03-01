@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lucasmeller1/excel_api/internal/handlers"
-	"github.com/lucasmeller1/excel_api/internal/telemetry"
-	"github.com/lucasmeller1/excel_api/internal/utils"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/handlers"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/telemetry"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/utils"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	name          = "github.com/lucasmeller1/excel_api/internal/clickhouse"
+	name          = "github.com/lucasmeller1/clickhouse-auth-gateway/internal/clickhouse"
 	maxExportSize = 100 << 20
 )
 

@@ -1,10 +1,10 @@
 package main
 
 import (
-	"github.com/lucasmeller1/excel_api/internal/app"
-	"github.com/lucasmeller1/excel_api/internal/clickhouse"
-	"github.com/lucasmeller1/excel_api/internal/config"
-	"github.com/lucasmeller1/excel_api/internal/redis"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/app"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/clickhouse"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/config"
+	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/redis"
 )
 
 func main() {
