@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/lucasmeller1/clickhouse-auth-gateway/internal/config"
@@ -20,10 +21,18 @@ import (
 
 var tracer = otel.Tracer("github.com/lucasmeller1/clickhouse-auth-gateway/internal/auth")
 
+var jwksForceRefreshGuard = struct {
+	mu       sync.Mutex
+	lastTime time.Time
+	cooldown time.Duration
+}{
+	cooldown: 30 * time.Second,
+}
+
 func GetCachedTIDKeys(ctx context.Context, cfgAuth *config.AuthConfig, redisClient *redis.RedisClient, force bool) ([]byte, error) {
 	ctx, span := tracer.Start(ctx, "Auth.GetCachedTIDKeys", trace.WithSpanKind(trace.SpanKindInternal))
 	defer span.End()
-
+ 
 	cacheKey := fmt.Sprintf("jwks:%s", cfgAuth.TenantID)
 
 	span.SetAttributes(
@@ -31,25 +40,47 @@ func GetCachedTIDKeys(ctx context.Context, cfgAuth *config.AuthConfig, redisClie
 		attribute.Bool("jwks.force_refresh", force),
 		attribute.String("cache.key", cacheKey),
 	)
-
+ 
 	if force {
-		data, err := FetchEntraJWKS(ctx, cfgAuth)
-		if err != nil {
-			telemetry.RecordSpanError(span, err)
-			return nil, err
+		jwksForceRefreshGuard.mu.Lock()
+		elapsed := time.Since(jwksForceRefreshGuard.lastTime)
+		canRefresh := elapsed >= jwksForceRefreshGuard.cooldown
+		if canRefresh {
+			jwksForceRefreshGuard.lastTime = time.Now()
 		}
+		jwksForceRefreshGuard.mu.Unlock()
 
-		_ = redisClient.SetCachedResponse(ctx, cacheKey, data, time.Hour)
-
-		span.SetAttributes(attribute.String("jwks.cache_status", "force_refresh"))
-		return data, nil
+		if !canRefresh {
+			span.AddEvent("jwks.force_refresh_rate_limited")
+ 
+			cached, err := redisClient.GetCachedResponse(ctx, cacheKey)
+			if err != nil {
+				telemetry.RecordSpanError(span, err)
+				return nil, err
+			}
+			if cached != nil {
+				return cached, nil
+			}
+ 
+		} else {
+			data, err := FetchEntraJWKS(ctx, cfgAuth)
+			if err != nil {
+				telemetry.RecordSpanError(span, err)
+				return nil, err
+			}
+ 
+			_ = redisClient.SetCachedResponse(ctx, cacheKey, data, time.Hour)
+ 
+			span.SetAttributes(attribute.String("jwks.cache_status", "force_refresh"))
+			return data, nil
+		}
 	}
-
+ 
 	data, err := redisClient.GetWithSingleflight(ctx, cacheKey, time.Hour, func(sfCtx context.Context) ([]byte, error) {
 		span.AddEvent("jwks.cache_miss_fetching")
 		return FetchEntraJWKS(sfCtx, cfgAuth)
 	})
-
+ 
 	if err != nil {
 		telemetry.RecordSpanError(span, err)
 		return nil, err
